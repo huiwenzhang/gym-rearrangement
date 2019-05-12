@@ -1,0 +1,1 @@
+from gym_rearrangement.envs.maze_env import *
