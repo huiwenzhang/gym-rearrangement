@@ -48,7 +48,6 @@ register(
     nondeterministic=True,
 )
 
-
 register(
     id='maze-sample-100x100-v0',
     entry_point='gym_rearrangement.envs:MazeEnvSample100x100',
@@ -82,3 +81,46 @@ register(
     max_episode_steps=1000000,
     nondeterministic=True,
 )
+
+
+# ================robotics==========================
+
+def _merge(a, b):
+    a.update(b)
+    return a
+
+
+for reward_type in ['sparse', 'dense']:
+    suffix = 'Dense' if reward_type == 'dense' else ''
+    kwargs = {
+        'reward_type': reward_type,
+    }
+
+    # Fetch
+    register(
+        id='FetchSlide{}-v2'.format(suffix),
+        entry_point='gym_rearrangement.envs:FetchSlideEnv',
+        kwargs=kwargs,
+        max_episode_steps=50,
+    )
+
+    register(
+        id='FetchReach{}-v2'.format(suffix),
+        entry_point='gym_rearrangement.envs:FetchReachEnv',
+        kwargs=kwargs,
+        max_episode_steps=50,
+    )
+
+    register(
+        id='FetchPush{}-v2'.format(suffix),
+        entry_point='gym_rearrangement.envs:FetchPushEnv',
+        kwargs=kwargs,
+        max_episode_steps=50,
+    )
+
+    register(
+        id='FetchPickPlace{}-v2'.format(suffix),
+        entry_point='gym_rearrangement.envs:FetchPickAndPlaceEnv',
+        kwargs=kwargs,
+        max_episode_steps=50,
+    )
