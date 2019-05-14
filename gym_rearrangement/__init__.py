@@ -124,3 +124,18 @@ for reward_type in ['sparse', 'dense']:
         kwargs=kwargs,
         max_episode_steps=50,
     )
+
+    # ======================fetch rearrangement task================
+    register(
+        id='RearrangeFour{}-v1'.format(suffix),
+        entry_point='gym_rearrangement.envs:RearrangeFour',
+        kwargs=kwargs,
+        max_episode_steps=50,
+    )
+
+    register(
+        id='RearrangeSix{}-v1'.format(suffix),
+        entry_point='gym_rearrangement.envs:RearrangeSix',
+        kwargs=kwargs,
+        max_episode_steps=50,
+    )
