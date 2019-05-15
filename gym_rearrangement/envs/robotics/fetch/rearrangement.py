@@ -12,8 +12,8 @@ TABLE_SIZE = 0.5 * 100
 TABLE_CENTER = [107, 50]
 
 
-class RearrangeFour(fetch_env.FetchEnv, utils.EzPickle):
-    def __init__(self, reward_type='sparse'):
+class Rearrangement(fetch_env.FetchEnv, utils.EzPickle):
+    def __init__(self, reward_type='sparse', n_object=4):
         print("test in FetchPickAndPlaceEnv")
         initial_qpos = {
             'robot0:slide0': 0.405,
@@ -21,7 +21,8 @@ class RearrangeFour(fetch_env.FetchEnv, utils.EzPickle):
             'robot0:slide2': 0.0,
             'object0:joint': [1.25, 0.53, 0.4, 1., 0., 0., 0.],
         }
-        model_xml_path = os.path.join('fetch', 'rearrange_4.xml')
+        self.n_object = n_object
+        model_xml_path = os.path.join('fetch', 'rearrange_{}.xml'.format(self.n_object))
         fetch_env.FetchEnv.__init__(
             self, model_xml_path, has_object=True, block_gripper=False, n_substeps=20,
             gripper_extra_height=0.2, target_in_the_air=True, target_offset=0.0,
@@ -29,7 +30,6 @@ class RearrangeFour(fetch_env.FetchEnv, utils.EzPickle):
             initial_qpos=initial_qpos, reward_type=reward_type)
         utils.EzPickle.__init__(self)
         # Number of objects
-        self.n_object = 4
 
     def _reset_sim(self):
         self.sim.set_state(self.initial_state)
@@ -60,19 +60,3 @@ class RearrangeFour(fetch_env.FetchEnv, utils.EzPickle):
         return True
 
 
-class RearrangeSix(fetch_env.FetchEnv, utils.EzPickle):
-    def __init__(self, reward_type='sparse'):
-        print("test in FetchPickAndPlaceEnv")
-        initial_qpos = {
-            'robot0:slide0': 0.405,
-            'robot0:slide1': 0.48,
-            'robot0:slide2': 0.0,
-            'object0:joint': [1.25, 0.53, 0.4, 1., 0., 0., 0.],
-        }
-        model_xml_path = os.path.join('fetch', 'rearrange_6.xml')
-        fetch_env.FetchEnv.__init__(
-            self, model_xml_path, has_object=True, block_gripper=False, n_substeps=20,
-            gripper_extra_height=0.2, target_in_the_air=True, target_offset=0.0,
-            obj_range=0.15, target_range=0.15, distance_threshold=0.05,
-            initial_qpos=initial_qpos, reward_type=reward_type)
-        utils.EzPickle.__init__(self)

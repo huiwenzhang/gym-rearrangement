@@ -44,15 +44,15 @@
 			<site name="object3" pos="0 0 0" size="0.02 0.02 0.02" rgba="1 0 0 1" type="sphere"></site>
 		</body>
 
-		<body name="object4" pos="1.5 0.6 0.5">
+		<body name="object4" pos="1.3 0.6 0.5">
 			<joint name="object4:joint" type="free" damping="0.01"></joint>
 			<geom size="0.025" type="sphere" condim="3" name="object4" material="block_yellow" mass="2"></geom>
 			<site name="object4" pos="0 0 0" size="0.02 0.02 0.02" rgba="1 0 0 1" type="sphere"></site>
 		</body>
 
-		<body name="object5" pos="1.4 0.6 0.1">
+		<body name="object5" pos="1.4 0.8 0.5">
 			<joint name="object5:joint" type="free" damping="0.01"></joint>
-			<geom size="0.025 0.025" type="cylinder" condim="3" name="object5" material="block_blue" mass="2"></geom>
+			<geom size="0.025 0.025" type="sphere" condim="3" name="object5" material="block_blue" mass="2"></geom>
 			<site name="object5" pos="0 0 0" size="0.02 0.02 0.02" rgba="1 0 0 1" type="sphere"></site>
 		</body>
 

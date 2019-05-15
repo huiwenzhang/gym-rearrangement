@@ -96,27 +96,7 @@ for reward_type in ['sparse', 'dense']:
         'reward_type': reward_type,
     }
 
-    # Fetch
-    register(
-        id='FetchSlide{}-v2'.format(suffix),
-        entry_point='gym_rearrangement.envs:FetchSlideEnv',
-        kwargs=kwargs,
-        max_episode_steps=50,
-    )
-
-    register(
-        id='FetchReach{}-v2'.format(suffix),
-        entry_point='gym_rearrangement.envs:FetchReachEnv',
-        kwargs=kwargs,
-        max_episode_steps=50,
-    )
-
-    register(
-        id='FetchPush{}-v2'.format(suffix),
-        entry_point='gym_rearrangement.envs:FetchPushEnv',
-        kwargs=kwargs,
-        max_episode_steps=50,
-    )
+    # Fetch Pick and Place
 
     register(
         id='FetchPickPlace{}-v2'.format(suffix),
@@ -125,17 +105,16 @@ for reward_type in ['sparse', 'dense']:
         max_episode_steps=50,
     )
 
-    # ======================fetch rearrangement task================
-    register(
-        id='RearrangeFour{}-v1'.format(suffix),
-        entry_point='gym_rearrangement.envs:RearrangeFour',
-        kwargs=kwargs,
-        max_episode_steps=50,
-    )
+    # Fetch arrangement
+    for n_object in [4, 6]:
+        kwargs = {
+            'reward_type': reward_type,
+            'n_object': n_object,
+        }
+        register(
+            id='Rearrangement{}{}-v1'.format(n_object, suffix),
+            entry_point='gym_rearrangement.envs:Rearrangement',
+            kwargs=kwargs,
+            max_episode_steps=50,
+        )
 
-    register(
-        id='RearrangeSix{}-v1'.format(suffix),
-        entry_point='gym_rearrangement.envs:RearrangeSix',
-        kwargs=kwargs,
-        max_episode_steps=50,
-    )

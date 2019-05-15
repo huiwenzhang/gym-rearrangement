@@ -12,11 +12,11 @@ import gym
 import gym_rearrangement
 
 # Initialize the "maze" environment
-env = gym.make("RearrangeFour-v1")
+env = gym.make("Rearrangement6-v1")
 
 
 obs = env.reset()
-for _ in range(500):
+for _ in range(200):
     action = env.action_space.sample()
     obs, rew, done, info = env.step(action)
     env.render()
