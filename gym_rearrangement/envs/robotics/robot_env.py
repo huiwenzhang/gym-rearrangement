@@ -5,15 +5,19 @@ import numpy as np
 import gym
 from gym import error, spaces
 from gym.utils import seeding
+from gym_rearrangement.core.goal_env import GoalEnv
 
 try:
     import mujoco_py
 except ImportError as e:
-    raise error.DependencyNotInstalled("{}. (HINT: you need to install mujoco_py, and also perform the setup instructions here: https://github.com/openai/mujoco-py/.)".format(e))
+    raise error.DependencyNotInstalled(
+        "{}. (HINT: you need to install mujoco_py, and also perform the setup instructions here: https://github.com/openai/mujoco-py/.)".format(
+            e))
 
 DEFAULT_SIZE = 500
 
-class RobotEnv(gym.GoalEnv):
+
+class RobotEnv(GoalEnv):
     def __init__(self, model_path, initial_qpos, n_actions, n_substeps):
         print("test in RobotEnv")
         if model_path.startswith('/'):
@@ -24,10 +28,11 @@ class RobotEnv(gym.GoalEnv):
         if not os.path.exists(fullpath):
             raise IOError('File {} does not exist'.format(fullpath))
 
-        model = mujoco_py.load_model_from_path(fullpath)
-        # nsubsteps: number of mujoco steps in each step funciton call
-        self.sim = mujoco_py.MjSim(model, nsubsteps=n_substeps)
+        self.model = mujoco_py.load_model_from_path(fullpath)
+        # n_substeps: number of mujoco steps in each step funciton call
+        self.sim = mujoco_py.MjSim(self.model, nsubsteps=n_substeps)
         self.viewer = None
+        self.data = self.sim.data
         self._viewers = {}
 
         self.metadata = {
@@ -38,17 +43,19 @@ class RobotEnv(gym.GoalEnv):
         self.seed()
         self._env_setup(initial_qpos=initial_qpos)
         self.initial_state = copy.deepcopy(self.sim.get_state())
-
-        self.goal = self._sample_goal()
+        self.goal = self._sample_goal()  # target state
 
         # specify observation space and action space, necessary for goal env
         # for goal env, observation space is a gym.space.Dict instance
         obs = self._get_obs()
         self.action_space = spaces.Box(-1., 1., shape=(n_actions,), dtype='float32')
         self.observation_space = spaces.Dict(dict(
-            desired_goal=spaces.Box(-np.inf, np.inf, shape=obs['achieved_goal'].shape, dtype='float32'),
-            achieved_goal=spaces.Box(-np.inf, np.inf, shape=obs['achieved_goal'].shape, dtype='float32'),
-            observation=spaces.Box(-np.inf, np.inf, shape=obs['observation'].shape, dtype='float32'),
+            desired_goal=spaces.Box(-np.inf, np.inf, shape=obs['achieved_goal'].shape,
+                                    dtype='float32'),
+            achieved_goal=spaces.Box(-np.inf, np.inf, shape=obs['achieved_goal'].shape,
+                                     dtype='float32'),
+            observation=spaces.Box(-np.inf, np.inf, shape=obs['observation'].shape,
+                                   dtype='float32'),
         ))
 
     @property
@@ -73,7 +80,7 @@ class RobotEnv(gym.GoalEnv):
         info = {
             'is_success': self._is_success(obs['achieved_goal'], self.goal),
         }
-        reward = self.compute_reward(obs['achieved_goal'], self.goal, info)
+        reward = self.compute_reward(obs)
         return obs, reward, done, info
 
     def reset(self):
@@ -85,7 +92,7 @@ class RobotEnv(gym.GoalEnv):
         did_reset_sim = False
         while not did_reset_sim:
             did_reset_sim = self._reset_sim()
-        self.goal = self._sample_goal().copy()
+        # self.goal = self._sample_goal().copy()
         obs = self._get_obs()
         return obs
 
@@ -113,7 +120,7 @@ class RobotEnv(gym.GoalEnv):
                 self.viewer = mujoco_py.MjViewer(self.sim)
             elif mode == 'rgb_array':
                 self.viewer = mujoco_py.MjRenderContextOffscreen(self.sim, device_id=-1)
-            self._viewer_setup()
+            self._viewer_setup()  # set camera etc.
             self._viewers[mode] = self.viewer
         return self.viewer
 
@@ -173,3 +180,23 @@ class RobotEnv(gym.GoalEnv):
         to enforce additional constraints on the simulation state.
         """
         pass
+
+    def set_state(self, qpos, qvel):
+        assert qpos.shape == (self.model.nq,) and qvel.shape == (self.model.nv,)
+        old_state = self.sim.get_state()
+        new_state = mujoco_py.MjSimState(old_state.time, qpos, qvel, old_state.act,
+                                         old_state.udd_state)
+        self.sim.set_state(new_state)
+        self.sim.forward()
+
+    def get_image(self, width=84, height=84, camera_name=None):
+        return self.sim.render(
+            width=width,
+            height=height,
+            camera_name=camera_name
+        )
+
+    def init_camera(self, init_fn):
+        viewer = mujoco_py.MjRenderContextOffscreen(self.sim)
+        init_fn(viewer.cam)
+        self.sim.add_render_context(viewer)

@@ -1,5 +1,5 @@
 """
-Test of the fetch environment
+Test env and functions defined in multiworld repo
 """
 
 # Optional fetch env id:
@@ -9,14 +9,12 @@ Test of the fetch environment
 # - FetchPickAndPlace-v1
 
 import gym
-import gym_rearrangement
-
-# Initialize the "maze" environment
-env = gym.make("Rearrangement3-v1")
+import multiworld.envs.mujoco
+env = gym.make('Image48SawyerReachXYEnv-v1')
 
 
 obs = env.reset()
-for _ in range(200):
+for _ in range(2000):
     action = env.action_space.sample()
     obs, rew, done, info = env.step(action)
     env.render()

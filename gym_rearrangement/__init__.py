@@ -106,7 +106,7 @@ for reward_type in ['sparse', 'dense']:
     )
 
     # Fetch arrangement
-    for n_object in [4, 6]:
+    for n_object in [3, 4, 6]:
         kwargs = {
             'reward_type': reward_type,
             'n_object': n_object,
@@ -117,4 +117,3 @@ for reward_type in ['sparse', 'dense']:
             kwargs=kwargs,
             max_episode_steps=50,
         )
-

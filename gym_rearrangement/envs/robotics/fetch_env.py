@@ -1,6 +1,6 @@
 import numpy as np
 
-from gym_rearrangement.envs.robotics import rotations, robot_env, utils
+from gym_rearrangement.envs.robotics import rotations, robot_env, utils, cameras_setup
 
 
 def goal_distance(goal_a, goal_b):
@@ -10,12 +10,14 @@ def goal_distance(goal_a, goal_b):
 
 class FetchEnv(robot_env.RobotEnv):
     """Superclass for all Fetch environments.
+    Custom utility mehtods used in robotenv, which defines customized response
+    in upper level calls, such as rest, step
     """
 
     def __init__(
-        self, model_path, n_substeps, gripper_extra_height, block_gripper,
-        has_object, target_in_the_air, target_offset, obj_range, target_range,
-        distance_threshold, initial_qpos, reward_type,
+            self, model_path, n_substeps, gripper_extra_height, block_gripper,
+            has_object, target_in_the_air, target_offset, obj_range, target_range,
+            distance_threshold, initial_qpos, reward_type, fix_goal
     ):
         """Initializes a new Fetch environment.
 
@@ -43,6 +45,7 @@ class FetchEnv(robot_env.RobotEnv):
         self.target_range = target_range
         self.distance_threshold = distance_threshold
         self.reward_type = reward_type
+        self.fix_goal = fix_goal
 
         super(FetchEnv, self).__init__(
             model_path=model_path, n_substeps=n_substeps, n_actions=4,
@@ -51,8 +54,10 @@ class FetchEnv(robot_env.RobotEnv):
     # GoalEnv methods
     # ----------------------------
 
-    def compute_reward(self, achieved_goal, goal, info):
+    def compute_reward(self, obs):
         # Compute distance between goal and the achieved goal.
+        achieved_goal = obs['achieved_goal']
+        goal = obs['desired_goal']
         d = goal_distance(achieved_goal, goal)
         # sparse reward: either 0 or 1 reward
         if self.reward_type == 'sparse':
@@ -146,18 +151,24 @@ class FetchEnv(robot_env.RobotEnv):
         if self.has_object:
             object_xpos = self.initial_gripper_xpos[:2]
             while np.linalg.norm(object_xpos - self.initial_gripper_xpos[:2]) < 0.1:
-                object_xpos = self.initial_gripper_xpos[:2] + self.np_random.uniform(-self.obj_range, self.obj_range, size=2)
+                object_xpos = self.initial_gripper_xpos[:2] + self.np_random.uniform(
+                    -self.obj_range, self.obj_range, size=2)
             object_qpos = self.sim.data.get_joint_qpos('object0:joint')
             assert object_qpos.shape == (7,)
             object_qpos[:2] = object_xpos
             self.sim.data.set_joint_qpos('object0:joint', object_qpos)
 
         self.sim.forward()
+
+        # Randomize the goal state
+        if not self.fix_goal:
+            self.goal = self._sample_goal()
         return True
 
     def _sample_goal(self):
         if self.has_object:
-            goal = self.initial_gripper_xpos[:3] + self.np_random.uniform(-self.target_range, self.target_range, size=3)
+            goal = self.initial_gripper_xpos[:3] + self.np_random.uniform(-self.target_range,
+                                                                          self.target_range, size=3)
             goal += self.target_offset
             goal[2] = self.height_offset
             if self.target_in_the_air and self.np_random.uniform() < 0.5:
@@ -177,7 +188,9 @@ class FetchEnv(robot_env.RobotEnv):
         self.sim.forward()
 
         # Move end effector into position.
-        gripper_target = np.array([-0.498, 0.005, -0.431 + self.gripper_extra_height]) + self.sim.data.get_site_xpos('robot0:grip')
+        gripper_target = np.array(
+            [-0.498, 0.005, -0.431 + self.gripper_extra_height]) + self.sim.data.get_site_xpos(
+            'robot0:grip')
         gripper_rotation = np.array([1., 0., 1., 0.])
         self.sim.data.set_mocap_pos('robot0:mocap', gripper_target)
         self.sim.data.set_mocap_quat('robot0:mocap', gripper_rotation)

@@ -19,6 +19,7 @@ obs = env.reset()
 for _ in range(500):
     action = env.action_space.sample()
     obs, rew, done, info = env.step(action)
+    print(done)
     env.render()
     if done:
         env.reset()
