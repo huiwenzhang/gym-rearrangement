@@ -1,5 +1,5 @@
 import os
-from gym_rearrangement.envs.robotics import fetch_env, utils, rotations, cameras_setup
+from gym_rearrangement.envs.robotics import fetch_env, utils, rotations
 import numpy as np
 from gym.utils import EzPickle
 
@@ -13,7 +13,7 @@ TABLE_CENTER = [107, 50]
 
 
 class Rearrangement(fetch_env.FetchEnv, EzPickle):
-    def __init__(self, reward_type='sparse', n_object=4):
+    def __init__(self, reward_type='sparse', n_object=4, visual_targets=False):
         print("test in FetchPickAndPlaceEnv")
         initial_qpos = {
             'robot0:slide0': 0.405,
@@ -22,6 +22,7 @@ class Rearrangement(fetch_env.FetchEnv, EzPickle):
             'object0:joint': [1.25, 0.53, 0.4, 1., 0., 0., 0.],
         }
         self.n_object = n_object
+        self.vis_targets = visual_targets
         model_xml_path = os.path.join('fetch', 'rearrange_{}.xml'.format(self.n_object))
         fetch_env.FetchEnv.__init__(
             self, model_xml_path, has_object=True, block_gripper=False, n_substeps=20,
@@ -90,6 +91,7 @@ class Rearrangement(fetch_env.FetchEnv, EzPickle):
         gripper_vel = robot_qvel[-2:] * dt
 
         achieved_goal = np.squeeze(object_pos.flatten())
+        # 46D
         obs = np.concatenate([
             grip_pos, object_pos.ravel(), gripper_state, object_rot.ravel(),
             object_velp.ravel(), object_velr.ravel(), grip_velp, gripper_vel
@@ -129,12 +131,21 @@ class Rearrangement(fetch_env.FetchEnv, EzPickle):
         return np.squeeze(goal_pos.flatten())
 
     # TODO Setup _viewer_setup called by _get_viewer and render
+    def _viewer_setup(self):
+        body_id = self.sim.model.body_name2id('robot0:gripper_link')
+        lookat = self.sim.data.body_xpos[body_id]
+        for idx, value in enumerate(lookat):
+            self.viewer.cam.lookat[idx] = value
+        self.viewer.cam.distance = 2.
+        self.viewer.cam.azimuth = 132.
+        self.viewer.cam.elevation = -15.
 
     # TODO redefine _render_callback for multi-objects env
     def _render_callback(self):
         # visualize all targets
-        sites_offset = (self.sim.data.site_xpos - self.sim.model.site_pos).copy()
-        for i in range(self.n_object):
-            site_id = self.sim.model.site_name2id('target{}'.format(i))
-            self.sim.model.site_pos[site_id] = self.goal[i * 3:i * 3 + 3] - sites_offset[i]
-            self.sim.forward()
+        if self.vis_targets:
+            sites_offset = (self.sim.data.site_xpos - self.sim.model.site_pos).copy()
+            for i in range(self.n_object):
+                site_id = self.sim.model.site_name2id('target{}'.format(i))
+                self.sim.model.site_pos[site_id] = self.goal[i * 3:i * 3 + 3] - sites_offset[i]
+                self.sim.forward()

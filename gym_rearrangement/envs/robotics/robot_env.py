@@ -76,6 +76,8 @@ class RobotEnv(GoalEnv):
         self._step_callback()
         obs = self._get_obs()
 
+        # print(obs)
+
         done = False
         info = {
             'is_success': self._is_success(obs['achieved_goal'], self.goal),
