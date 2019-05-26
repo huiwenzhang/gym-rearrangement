@@ -13,7 +13,8 @@ import cv2
 import os
 import gym_rearrangement
 from gym_rearrangement.core.image_env import ImageEnv
-from gym_rearrangement.envs.robotics.cameras_setup import *
+
+# from gym_rearrangement.envs.robotics.cameras_setup import *
 
 train_img_path = '/tmp/rearrange/image/train'
 if not os.path.exists(train_img_path):
@@ -36,7 +37,7 @@ for i in range(500):
     file_name = os.path.join(train_img_path, '{:0>3d}.png'.format(i))
     cv2.imwrite(file_name, im)
 
-    env.cv_render('table_camera')
+    env.cv_render('external_camera_0')
 
     if done:
         env.reset()

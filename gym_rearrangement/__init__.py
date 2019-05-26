@@ -96,17 +96,16 @@ for reward_type in ['sparse', 'dense']:
         'reward_type': reward_type,
     }
 
-    # Fetch Pick and Place
-
+    # Fetch Pick and Place, mirrior of the gym fetch pick and place
     register(
-        id='FetchPickPlace{}-v2'.format(suffix),
+        id='FetchPickAndPlace{}-v2'.format(suffix),
         entry_point='gym_rearrangement.envs:FetchPickAndPlaceEnv',
         kwargs=kwargs,
-        max_episode_steps=50,
+        max_episode_steps=100,
     )
 
-    # Fetch arrangement
-    for n_object in [3, 4, 6]:
+    # Fetch rearrangement
+    for n_object in [2, 3, 4, 6]:
         kwargs = {
             'reward_type': reward_type,
             'n_object': n_object,

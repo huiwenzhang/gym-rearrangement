@@ -63,7 +63,6 @@ class FetchEnv(robot_env.RobotEnv):
         if self.reward_type == 'sparse':
             return -(d > self.distance_threshold).astype(np.float32)
         else:
-            print('Dense reward:', -d)
             return -d
 
     # RobotEnv methods
@@ -140,12 +139,17 @@ class FetchEnv(robot_env.RobotEnv):
     def _render_callback(self):
         # Visualize target.
         sites_offset = (self.sim.data.site_xpos - self.sim.model.site_pos).copy()
+        print('site offset', sites_offset)
         site_id = self.sim.model.site_name2id('target0')
         self.sim.model.site_pos[site_id] = self.goal - sites_offset[0]
         self.sim.forward()
 
     def _reset_sim(self):
         self.sim.set_state(self.initial_state)
+
+        # Randomize the goal state
+        if not self.fix_goal:
+            self.goal = self._sample_goal()
 
         # Randomize start position of object.
         if self.has_object:
@@ -159,10 +163,6 @@ class FetchEnv(robot_env.RobotEnv):
             self.sim.data.set_joint_qpos('object0:joint', object_qpos)
 
         self.sim.forward()
-
-        # Randomize the goal state
-        if not self.fix_goal:
-            self.goal = self._sample_goal()
         return True
 
     def _sample_goal(self):

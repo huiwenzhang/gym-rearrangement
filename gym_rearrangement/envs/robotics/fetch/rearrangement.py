@@ -13,8 +13,7 @@ TABLE_CENTER = [107, 50]
 
 
 class Rearrangement(fetch_env.FetchEnv, EzPickle):
-    def __init__(self, reward_type='sparse', n_object=4, visual_targets=False):
-        print("test in FetchPickAndPlaceEnv")
+    def __init__(self, reward_type='sparse', n_object=4, visual_targets=True, fix_goal=False):
         initial_qpos = {
             'robot0:slide0': 0.405,
             'robot0:slide1': 0.48,
@@ -23,16 +22,21 @@ class Rearrangement(fetch_env.FetchEnv, EzPickle):
         }
         self.n_object = n_object
         self.vis_targets = visual_targets
+        self.fix_goal = fix_goal
         model_xml_path = os.path.join('fetch', 'rearrange_{}.xml'.format(self.n_object))
         fetch_env.FetchEnv.__init__(
             self, model_xml_path, has_object=True, block_gripper=False, n_substeps=20,
             gripper_extra_height=0.2, target_in_the_air=False, target_offset=0.0,
             obj_range=0.15, target_range=0.15, distance_threshold=0.1,
-            initial_qpos=initial_qpos, reward_type=reward_type, fix_goal=False)
+            initial_qpos=initial_qpos, reward_type=reward_type, fix_goal=fix_goal)
         EzPickle.__init__(self)
 
     def _reset_sim(self):
         self.sim.set_state(self.initial_state)
+
+        # Randomize the goal state
+        if not self.fix_goal:
+            self.goal = self._sample_goal()
 
         # Randomize start position of all objects.
         grid_size = int(TABLE_SIZE * 0.9 / N_GRID)
@@ -145,7 +149,9 @@ class Rearrangement(fetch_env.FetchEnv, EzPickle):
         # visualize all targets
         if self.vis_targets:
             sites_offset = (self.sim.data.site_xpos - self.sim.model.site_pos).copy()
+            # print('site offset', sites_offset)
             for i in range(self.n_object):
                 site_id = self.sim.model.site_name2id('target{}'.format(i))
                 self.sim.model.site_pos[site_id] = self.goal[i * 3:i * 3 + 3] - sites_offset[i]
+                # self.sim.model.site_pos[site_id] = self.goal[i * 3:i * 3 + 3]
                 self.sim.forward()

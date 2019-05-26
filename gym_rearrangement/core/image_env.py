@@ -195,6 +195,11 @@ class ImageEnv(ProxyEnv, GoalEnv):
         self._img_goal = goal['img_desired_goal']
 
     def compute_reward(self, obs):
+        """
+        image distance, we can also use state distance by seting reward_type = wrapped_env
+        :param obs:
+        :return:
+        """
         achieved_goals = obs['img_achieved_goal']
         desired_goal = obs['img_desired_goal']
         dist = np.linalg.norm(achieved_goals - desired_goal)

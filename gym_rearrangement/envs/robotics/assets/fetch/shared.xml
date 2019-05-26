@@ -8,13 +8,23 @@
         <material name="floor_mat" specular="0" shininess="0.5" reflectance="0" rgba="0.2 0.2 0.2 1"></material>
         <material name="table_mat" specular="0" shininess="0.5" reflectance="0" rgba="0.93 0.93 0.93 1"></material>
 
+        <!--        objects appearance-->
         <material name="block_mat" specular="0" shininess="0.5" reflectance="0" rgba="0.2 0.2 0.2 1"></material>
-        <material name="block_blue" specular="0" shininess="0.5" reflectance="0" rgba="0. 0. 0.82 1"></material>
+        <material name="sphere_blue" specular="0" shininess="0.5" reflectance="0" rgba="0. 0. 0.82 1"></material>
         <material name="block_green" specular="0" shininess="0.5" reflectance="0" rgba="0. 0.82 0. 1"></material>
         <material name="block_red" specular="0" shininess="0.5" reflectance="0" rgba="0.82 0. 0. 1"></material>
-        <material name="block_yellow" specular="0" shininess="0.5" reflectance="0" rgba="0.59 0.59 0. 1"></material>
-        <material name="block_magenta" specular="0" shininess="0.5" reflectance="0" rgba="0.59 0. 0.59 1"></material>
+        <material name="sphere_yellow" specular="0" shininess="0.5" reflectance="0" rgba="0.59 0.59 0. 1"></material>
+        <material name="sphere_magenta" specular="0" shininess="0.5" reflectance="0" rgba="0.59 0. 0.59 1"></material>
         <material name="block_cyan" specular="0" shininess="0.5" reflectance="0" rgba="0. 0.59 0.59 1"></material>
+
+        <!--   transparent     objects appearance-->
+        <material name="block_mat_alpha" specular="0" shininess="0.5" reflectance="0" rgba="0.2 0.2 0.2 0.5"></material>
+        <material name="sphere_blue_alpha" specular="0" shininess="0.5" reflectance="0" rgba="0. 0. 0.82 0.5"></material>
+        <material name="block_green_alpha" specular="0" shininess="0.5" reflectance="0" rgba="0. 0.82 0. 0.5"></material>
+        <material name="block_red_alpha" specular="0" shininess="0.5" reflectance="0" rgba="0.82 0. 0. 0.5"></material>
+        <material name="sphere_yellow_alpha" specular="0" shininess="0.5" reflectance="0" rgba="0.59 0.59 0. 0.5"></material>
+        <material name="sphere_magenta_alpha" specular="0" shininess="0.5" reflectance="0" rgba="0.59 0. 0.59 0.5"></material>
+        <material name="block_cyan_alpha" specular="0" shininess="0.5" reflectance="0" rgba="0. 0.59 0.59 0.5"></material>
 
         <material name="puck_mat" specular="0" shininess="0.5" reflectance="0" rgba="0.2 0.2 0.2 1"></material>
         <material name="robot0:geomMat" shininess="0.03" specular="0.4"></material>
