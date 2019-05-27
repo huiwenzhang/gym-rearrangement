@@ -14,7 +14,6 @@ import gym_rearrangement
 # Initialize the "maze" environment
 env = gym.make("FetchPickAndPlace-v2")
 
-
 obs = env.reset()
 for _ in range(500):
     action = env.action_space.sample()

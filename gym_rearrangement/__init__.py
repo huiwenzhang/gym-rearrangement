@@ -4,38 +4,6 @@ from gym.envs.registration import register
 logger = logging.getLogger(__name__)
 
 register(
-    id='maze-v0',
-    entry_point='gym_rearrangement.envs:MazeEnvSample5x5',
-    max_episode_steps=2000,
-)
-
-register(
-    id='maze-sample-5x5-v0',
-    entry_point='gym_rearrangement.envs:MazeEnvSample5x5',
-    max_episode_steps=2000,
-)
-
-register(
-    id='maze-random-5x5-v0',
-    entry_point='gym_rearrangement.envs:MazeEnvRandom5x5',
-    max_episode_steps=2000,
-    nondeterministic=True,
-)
-
-register(
-    id='maze-sample-10x10-v0',
-    entry_point='gym_rearrangement.envs:MazeEnvSample10x10',
-    max_episode_steps=10000,
-)
-
-register(
-    id='maze-random-10x10-v0',
-    entry_point='gym_rearrangement.envs:MazeEnvRandom10x10',
-    max_episode_steps=10000,
-    nondeterministic=True,
-)
-
-register(
     id='maze-sample-3x3-v0',
     entry_point='gym_rearrangement.envs:MazeEnvSample3x3',
     max_episode_steps=1000,
@@ -111,7 +79,7 @@ for reward_type in ['sparse', 'dense']:
             'n_object': n_object,
         }
         register(
-            id='Rearrangement{}{}-v1'.format(n_object, suffix),
+            id='FetchRearrangement{}{}-v1'.format(n_object, suffix),
             entry_point='gym_rearrangement.envs:Rearrangement',
             kwargs=kwargs,
             max_episode_steps=150,

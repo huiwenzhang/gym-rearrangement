@@ -149,7 +149,6 @@ class Rearrangement(fetch_env.FetchEnv, EzPickle):
         # visualize all targets
         if self.vis_targets:
             sites_offset = (self.sim.data.site_xpos - self.sim.model.site_pos).copy()
-            # print('site offset', sites_offset)
             for i in range(self.n_object):
                 site_id = self.sim.model.site_name2id('target{}'.format(i))
                 self.sim.model.site_pos[site_id] = self.goal[i * 3:i * 3 + 3] - sites_offset[i]

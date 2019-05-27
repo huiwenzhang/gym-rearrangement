@@ -3,6 +3,7 @@ from gym.spaces import Box
 from multiworld.core.serializable import Serializable
 import numpy as np
 
+
 class ProxyEnv(Serializable):
     def __init__(self, wrapped_env):
         self.quick_init(locals())
@@ -27,6 +28,7 @@ class NormalizedBoxEnv(ProxyEnv, Serializable):
 
     Optionally normalize observations.
     """
+
     def __init__(
             self,
             env,
@@ -67,14 +69,14 @@ class NormalizedBoxEnv(ProxyEnv, Serializable):
         self._obs_stds = obs_stds
         ub = np.ones(self._wrapped_env.action_space.shape)
         self.action_space = Box(-1 * ub, ub)
-        self.obs_to_normalize_keys=obs_to_normalize_keys
+        self.obs_to_normalize_keys = obs_to_normalize_keys
 
     def estimate_obs_stats(self, obs_batch, override_values=False):
         raise NotImplementedError()
 
     def _apply_normalize_obs(self, obs):
         for key in self.obs_to_normalize_keys:
-            obs[key]= (obs[key] - self._obs_means[key]) / (self._obs_stds[key] + 1e-8)
+            obs[key] = (obs[key] - self._obs_means[key]) / (self._obs_stds[key] + 1e-8)
 
     def __getstate__(self):
         d = Serializable.__getstate__(self)
