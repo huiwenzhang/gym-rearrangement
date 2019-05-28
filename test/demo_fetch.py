@@ -8,6 +8,7 @@ Test of the fetch environment
 # - FetchPush-v1
 # - FetchPickAndPlace-v1
 
+
 import gym
 import gym_rearrangement
 
