@@ -1,7 +1,9 @@
 import random
 import os
-
+import h5py
 import cv2
+import sys
+import shutil
 import numpy as np
 from PIL import Image
 from gym.spaces import Box, Dict
@@ -10,11 +12,12 @@ from gym_rearrangement.core.goal_env import GoalEnv
 from gym_rearrangement.core.wrapper_env import ProxyEnv
 from gym_rearrangement.envs.env_util import concatenate_box_spaces
 from gym_rearrangement.envs.env_util import get_stat_in_paths, create_stats_ordered_dict
+from vqa_utils import *
 
 # Parameters for random object positions
-N_GRID = 3
 TABLE_SIZE = 0.5 * 100
-TABLE_CENTER = [107, 50]
+TABLE_CORNER = [110, 50]
+TABLE_CENTER = [1.32, 0.75]  # Unit: meters
 
 
 class ImageEnv(ProxyEnv, GoalEnv):
@@ -32,26 +35,27 @@ class ImageEnv(ProxyEnv, GoalEnv):
                  reward_type='wrapped_env',
                  threshold=10,
                  img_len=None,
-                 presampled_goals=None,
                  recompute_reward=True,
                  save_img=False,
                  save_img_path=None,
-                 default_camera='external_camera_0'
+                 default_camera='external_camera_0',
+                 collect_data=False,
+                 data_size=1000,
                  ):
         """
 
         :param wrapped_env:
         :param img_size:
         :param init_camera:
-        :param tansform: necessasry transform for image: flip or rotate
+        :param transform: necessasry transform for image: flip or rotate
         :param grayscale:
         :param normalize:
         :param reward_type:
         :param threshold:
         :param img_len:
-        :param presampled_goals:
         :param recompute_reward:
         :param save_img: save image in a folder
+        :param collect_data: collect vqa datasets on each step
         """
         self.quick_init(locals())  # locals() will return all the local variables in a dict
         super().__init__(wrapped_env)  # initialize parent class proxy env for serialize
@@ -61,8 +65,9 @@ class ImageEnv(ProxyEnv, GoalEnv):
         self.grayscale = grayscale
         self.normalize = normalize
         self.recompute_reward = recompute_reward
-        # self.wrapped_env = wrapped_env
         self.default_camera = default_camera
+        self.collect_data = collect_data
+        self.dataset_size = data_size
 
         if img_len is not None:
             self.img_len = img_len
@@ -107,26 +112,34 @@ class ImageEnv(ProxyEnv, GoalEnv):
         self.action_space = self.wrapped_env.action_space
         self.reward_type = reward_type
         self.threshold = threshold
-        self._presampled_goals = presampled_goals
-        if self._presampled_goals is None:
-            self.num_goals_presampled = 0
-        else:
-            self.num_goals_presampled = \
-                presampled_goals[random.choice(list(presampled_goals))].shape[0]
+        self.num_shape = self.wrapped_env.n_object
+        self.data_cnt = 0  # number of samples when collection dataset
 
-        self.save_img = save_img
+        self.save_img = save_img or collect_data  # save image when collect data
         if save_img_path is None:
-            self.save_img_path = '/tmp/rearrange/image/'
+            self.save_img_path = '/tmp/rearrange/dataset/'
         else:
             self.save_img_path = save_img_path
 
-        # TODO: given a image goal
+        if self.save_img:
+            if os.path.exists(self.save_img_path):
+                shutil.rmtree(self.save_img_path)
+            os.makedirs(self.save_img_path)
+
+        if self.collect_data:
+            # output files
+            self.f = h5py.File(os.path.join(self.save_img_path, 'data.hy'), 'w')
+            self.id_file = open(os.path.join(self.save_img_path, 'id.txt'), 'w')
+
+        # TODO: given an image goal
         self._img_goal = self._sample_goal()  # sample an image goal
 
     def step(self, action):
         obs, reward, done, info = self.wrapped_env.step(action)
         new_obs = self._update_obs(obs)
-        print(new_obs)
+        # collect data on each step
+        if self.collect_data:
+            self.generate_vqa_data(new_obs)
         if self.recompute_reward:
             reward = self.compute_reward(new_obs)
         self._update_info(info, obs)
@@ -222,6 +235,82 @@ class ImageEnv(ProxyEnv, GoalEnv):
         assert image.dtype != np.uint8
         return (image * 255.).astype(np.uint8)
 
+    # Generate vqa dataset
+    def generate_vqa_data(self, obs):
+
+        def generate_image():
+            flat_img = obs['img_obs']
+            img = self.recover_img(flat_img)
+            rep = Representation(np.stack(self.wrapped_env.X).astype(np.float),
+                                 np.stack(self.wrapped_env.Y).astype(np.float),
+                                 self.wrapped_env.color, self.wrapped_env.shape)
+            # save image outside the env
+            return np.array(img), rep
+
+        def generate_questions(rep):
+            # Generate questions: [# of shape * # of Q, # of color + # of Q]
+            # Ask 5 questions for each type of color objects
+            # Each row is a Q with the first NUM_COLOR represnts the color and the last 5 column stands for Q ID
+            Q = np.zeros((self.num_shape * NUM_Q, NUM_COLOR + NUM_Q), dtype=np.bool)  # object - q
+            for i in range(self.num_shape):
+                v = np.zeros(NUM_COLOR)
+                v[rep.color[i]] = True
+                Q[i * NUM_Q:(i + 1) * NUM_Q, :NUM_COLOR] = np.tile(v, (NUM_Q, 1))
+                Q[i * NUM_Q:(i + 1) * NUM_Q, NUM_COLOR:] = np.diag(np.ones(NUM_Q))
+            return Q
+
+        def generate_answer(rep):
+            # Generate answers: [# of shape * # of Q, # of color + 4]
+            # # of color + 4: [color 1, color 2, ... , circle, rectangle, yes, no]
+            A = np.zeros((self.num_shape * NUM_Q, NUM_COLOR + 4), dtype=np.bool)
+            for i in range(self.num_shape):
+                # Q1: circle or rectangle?
+                if rep.shape[i]:
+                    A[i * NUM_Q, NUM_COLOR] = True
+                else:
+                    A[i * NUM_Q, NUM_COLOR + 1] = True
+
+                # Q2: bottom?
+                if rep.x[i] > (TABLE_CENTER[0]):
+                    A[i * NUM_Q + 1, NUM_COLOR + 2] = True
+                else:
+                    A[i * NUM_Q + 1, NUM_COLOR + 3] = True
+
+                # Q3: left?
+                if rep.y[i] < (TABLE_CENTER[1]):
+                    A[i * NUM_Q + 2, NUM_COLOR + 2] = True
+                else:
+                    A[i * NUM_Q + 2, NUM_COLOR + 3] = True
+
+                distance = 1.1 * (rep.y - rep.y[i]) ** 2 + (rep.x - rep.x[i]) ** 2
+                idx = distance.argsort()
+                # Q4: the color of the nearest object except for itself
+                min_idx = idx[1]
+                A[i * NUM_Q + 3, rep.color[min_idx]] = True
+                # Q5: the color of the farthest object
+                max_idx = idx[-1]
+                A[i * NUM_Q + 4, rep.color[max_idx]] = True
+            return A
+
+        I, R = generate_image()
+        A = generate_answer(R)
+        Q = generate_questions(R)
+        for j in range(self.num_shape * NUM_Q):
+            id = '{}'.format(self.data_cnt)
+            self.id_file.write(id + '\n')
+            grp = self.f.create_group(id)
+            grp['image'] = I
+            grp['question'] = Q[j, :]
+            grp['answer'] = A[j, :]
+            self.data_cnt += 1
+
+            if self.data_cnt >= self.dataset_size:
+                self.f.close()
+                self.id_file.close()
+                print('Dataset generated under {} with {} samples.'
+                      .format(self.save_img_path, self.dataset_size))
+                sys.exit(0)
+
     # Goal env methods
     def _sample_goal(self):
         """
@@ -241,7 +330,7 @@ class ImageEnv(ProxyEnv, GoalEnv):
             # block coordinates
             object_xpos = np.array(
                 [(x + 0.5) * grid_size, (y + 0.5) * grid_size]) + np.array(
-                TABLE_CENTER)
+                TABLE_CORNER)
             object_xpos = object_xpos / 100.
 
             object_joint_name = 'object{}:joint'.format(i)
@@ -255,8 +344,6 @@ class ImageEnv(ProxyEnv, GoalEnv):
         goal_img = self.recover_img(flat_img)
 
         if self.save_img:
-            if not os.path.exists(self.save_img_path):
-                os.makedirs(self.save_img_path)
             file_name = os.path.join(self.save_img_path, 'goal_img.png')
             cv2.imwrite(file_name, goal_img)
             cv2.waitKey(1)
@@ -273,7 +360,7 @@ class ImageEnv(ProxyEnv, GoalEnv):
         elif camera_name == 'table_camera':
             img_obs = np.rot90(img_obs)
         else:
-            print('Unsupported camera')
+            print('Undefined camera')
         cv2.imshow('robot view', img_obs)
         cv2.waitKey(1)
 

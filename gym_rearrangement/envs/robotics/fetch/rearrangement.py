@@ -9,11 +9,11 @@ from gym.utils import EzPickle
 # Parameters for random object positions
 N_GRID = 3
 TABLE_SIZE = 0.5 * 100
-TABLE_CENTER = [107, 50]
+TABLE_CORNER = [110, 50] # right bottom corner
 
 
 class Rearrangement(fetch_env.FetchEnv, EzPickle):
-    def __init__(self, reward_type='sparse', n_object=4, visual_targets=True, fix_goal=False):
+    def __init__(self, reward_type='sparse', n_object=4, visual_targets=False, fix_goal=False):
         initial_qpos = {
             'robot0:slide0': 0.405,
             'robot0:slide1': 0.48,
@@ -31,6 +31,23 @@ class Rearrangement(fetch_env.FetchEnv, EzPickle):
             initial_qpos=initial_qpos, reward_type=reward_type, fix_goal=fix_goal)
         EzPickle.__init__(self)
 
+        # Save object related infos
+        self.X = []  # x coordinates
+        self.Y = []  # y coordinates
+        # shapes and colors
+        if self.n_object == 2:
+            self.color = np.array([2, 0])  # red, blue
+            self.shape = np.array([False, True])  # True for sphere, False: box
+        elif self.n_object == 3:
+            self.color = np.array([2, 5, 0])
+            self.shape = np.array([False, False, True])
+        elif self.n_object == 4:
+            self.color = np.array([2, 5, 0, 4])
+            self.shape = np.array([False, False, True, True])
+        else:
+            self.color = np.array([2, 5, 1, 4, 3, 0])
+            self.shape = np.array([False, False, False, True, True, True])
+
     def _reset_sim(self):
         self.sim.set_state(self.initial_state)
 
@@ -44,15 +61,21 @@ class Rearrangement(fetch_env.FetchEnv, EzPickle):
         idx_coor = np.arange(N_GRID * N_GRID)
         np.random.shuffle(idx_coor)
 
+        self.X = []
+        self.Y = []
+
         for i in range(self.n_object):
             # block index
             x = idx_coor[i] % N_GRID
             y = (N_GRID - np.floor(idx_coor[i] / N_GRID) - 1).astype(np.uint8)
-            # block coordinates
+            # block coordinates, translate TABLE-CONRER distance
             object_xpos = np.array(
                 [(x + 0.5) * grid_size, (y + 0.5) * grid_size]) + np.array(
-                TABLE_CENTER)
+                TABLE_CORNER)
             object_xpos = object_xpos / 100.
+
+            self.X.append(object_xpos[0])
+            self.Y.append(object_xpos[1])
 
             object_joint_name = 'object{}:joint'.format(i)
             object_qpos = self.sim.data.get_joint_qpos(object_joint_name)
@@ -122,7 +145,7 @@ class Rearrangement(fetch_env.FetchEnv, EzPickle):
             # grid coordinates
             object_xpos = np.array(
                 [(x + 0.5) * grid_size, (y + 0.5) * grid_size]) + np.array(
-                TABLE_CENTER)
+                TABLE_CORNER)
             object_xpos = object_xpos / 100.
 
             object_joint_name = 'object{}:joint'.format(i)
