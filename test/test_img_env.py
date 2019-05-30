@@ -16,17 +16,15 @@ from gym_rearrangement.core.image_env import ImageEnv
 
 # from gym_rearrangement.envs.robotics.cameras_setup import *
 
-train_img_path = '/tmp/rearrange/image/train'
-if not os.path.exists(train_img_path):
-    os.makedirs(train_img_path)
+train_img_path = '/tmp/rearrange/train'
+os.makedirs(train_img_path, exist_ok=True)
 
-# Initialize the "maze" environment
+# Initialize the "rearrangement" environment
 env = gym.make("FetchRearrangement3-v1")
 # env = ImageEnv(env, reward_type='img_distance', save_img=True, init_camera=init_sawyer_camera_v1)
 env = ImageEnv(env, reward_type='img_distance', save_img=True, img_size=128)
 
 obs = env.reset()
-print(obs)
 for i in range(500):
     action = env.action_space.sample()
     obs, rew, done, info = env.step(action)
@@ -37,7 +35,7 @@ for i in range(500):
     file_name = os.path.join(train_img_path, '{:0>3d}.png'.format(i))
     cv2.imwrite(file_name, im)
 
-    env.cv_render('external_camera_0')
+    env.cv_render('external_camera_0') # render on screen with opencv
 
     if done:
         env.reset()

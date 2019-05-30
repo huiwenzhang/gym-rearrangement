@@ -12,7 +12,7 @@ env = gym.make("FetchRearrangement6-v1")
 env = ImageEnv(env, reward_type='img_distance', save_img=True, img_size=128, collect_data=True,
                data_size=50000)
 
-# To sample datasts, we need reset env every step, so set the max_epiosde_steps to be 1
+# To sample dataset, we need reset env every step, so set the max_epiosde_steps to be 1
 
 obs = env.reset()
 for i in range(2000):

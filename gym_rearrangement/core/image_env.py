@@ -16,8 +16,8 @@ from vqa_utils import *
 
 # Parameters for random object positions
 TABLE_SIZE = 0.5 * 100
-TABLE_CORNER = [110, 50]
-TABLE_CENTER = [1.32, 0.75]  # Unit: meters
+TABLE_CORNER = [105, 50]
+TABLE_CENTER = [1.3, 0.75]  # Unit: meters
 
 
 class ImageEnv(ProxyEnv, GoalEnv):
@@ -91,23 +91,6 @@ class ImageEnv(ProxyEnv, GoalEnv):
         spaces['img_obs'] = img_space
         spaces['img_desired_goal'] = img_space
         spaces['img_achieved_goal'] = img_space
-
-        self.return_img_proprio = False
-        if 'proprio_observation' in spaces.keys():
-            self.return_img_proprio = True
-            spaces['img_proprio_obs'] = concatenate_box_spaces(
-                spaces['img_obs'],
-                spaces['proprio_obs']
-            )
-            spaces['img_proprio_desired_goal'] = concatenate_box_spaces(
-                spaces['img_desired_goal'],
-                spaces['proprio_desired_goal']
-            )
-            spaces['img_proprio_achieved_goal'] = concatenate_box_spaces(
-                spaces['img_achieved_goal'],
-                spaces['proprio_achieved_goal']
-            )
-
         self.observation_space = Dict(spaces)
         self.action_space = self.wrapped_env.action_space
         self.reward_type = reward_type
@@ -117,7 +100,7 @@ class ImageEnv(ProxyEnv, GoalEnv):
 
         self.save_img = save_img or collect_data  # save image when collect data
         if save_img_path is None:
-            self.save_img_path = '/tmp/rearrange/dataset/'
+            self.save_img_path = '/tmp/rearrange_dataset/'
         else:
             self.save_img_path = save_img_path
 
@@ -159,18 +142,6 @@ class ImageEnv(ProxyEnv, GoalEnv):
         obs['img_achieved_goal'] = img_obs
 
         # state observation
-
-        if self.return_img_proprio:
-            obs['img_proprio_obs'] = np.concatenate(
-                (obs['img_obs'], obs['proprio_observation'])
-            )
-            obs['img_proprio_desired_goal'] = np.concatenate(
-                (obs['img_desired_goal'], obs['proprio_desired_goal'])
-            )
-            obs['img_proprio_achieved_goal'] = np.concatenate(
-                (obs['img_achieved_goal'], obs['proprio_achieved_goal'])
-            )
-
         return obs
 
     def _update_info(self, info, obs):
@@ -329,7 +300,7 @@ class ImageEnv(ProxyEnv, GoalEnv):
             y = (N_GRID - np.floor(idx_coor[i] / N_GRID) - 1).astype(np.uint8)
             # block coordinates
             object_xpos = np.array(
-                [(x + 0.5) * grid_size, (y + 0.5) * grid_size]) + np.array(
+                [(x + 0.5) * grid_size + x ** 2, (y + 0.5) * grid_size + y ** 2]) + np.array(
                 TABLE_CORNER)
             object_xpos = object_xpos / 100.
 

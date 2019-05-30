@@ -9,7 +9,7 @@ from gym.utils import EzPickle
 # Parameters for random object positions
 N_GRID = 3
 TABLE_SIZE = 0.5 * 100
-TABLE_CORNER = [110, 50] # right bottom corner
+TABLE_CORNER = [105, 50]  # right bottom corner
 
 
 class Rearrangement(fetch_env.FetchEnv, EzPickle):
@@ -69,8 +69,10 @@ class Rearrangement(fetch_env.FetchEnv, EzPickle):
             x = idx_coor[i] % N_GRID
             y = (N_GRID - np.floor(idx_coor[i] / N_GRID) - 1).astype(np.uint8)
             # block coordinates, translate TABLE-CONRER distance
+            # square of x, y is used for remove distance ambiguity
+            # (means one object may have serval ojbects with the same distance)
             object_xpos = np.array(
-                [(x + 0.5) * grid_size, (y + 0.5) * grid_size]) + np.array(
+                [(x + 0.5) * grid_size + x ** 2, (y + 0.5) * grid_size + y ** 2]) + np.array(
                 TABLE_CORNER)
             object_xpos = object_xpos / 100.
 
@@ -144,7 +146,7 @@ class Rearrangement(fetch_env.FetchEnv, EzPickle):
             y = (N_GRID - np.floor(idx_coor[i] / N_GRID) - 1).astype(np.uint8)
             # grid coordinates
             object_xpos = np.array(
-                [(x + 0.5) * grid_size, (y + 0.5) * grid_size]) + np.array(
+                [(x + 0.5) * grid_size + x ** 2, (y + 0.5) * grid_size + y ** 2]) + np.array(
                 TABLE_CORNER)
             object_xpos = object_xpos / 100.
 
