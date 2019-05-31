@@ -56,12 +56,21 @@ class FetchEnv(robot_env.RobotEnv):
 
     def compute_reward(self, obs):
         # Compute distance between goal and the achieved goal.
-        achieved_goal = obs['achieved_goal']
+        # Maybe the distance between gripper and object should be included
+        # So it is two stage task: approximate the object, pick it to the goal
+        # rewards = (grip_pos - object_pos)**2 + (target_pos - ojbect_pos)**2
+        achieved_goal = obs['achieved_goal']  # achieved goal is the current pos of object
         goal = obs['desired_goal']
-        d = goal_distance(achieved_goal, goal)
+        grip_pos = obs['observation'][:3]
+        d1 = goal_distance(achieved_goal, goal)
+        d2 = goal_distance(grip_pos, achieved_goal)
+        d = d1 + d2
+        # TODO: distance for mulitple objects
+
         # sparse reward: either 0 or 1 reward
         if self.reward_type == 'sparse':
-            return -(d > self.distance_threshold).astype(np.float32)
+            return -(d1 > self.distance_threshold).astype(np.float32) - (
+                        d2 > self.distance_threshold).astype(np.float32)
         else:
             return -d
 
