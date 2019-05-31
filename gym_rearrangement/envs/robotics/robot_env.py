@@ -1,6 +1,7 @@
 import os
 import copy
 import numpy as np
+from interval import Interval
 
 import gym
 from gym import error, spaces
@@ -15,6 +16,10 @@ except ImportError as e:
             e))
 
 DEFAULT_SIZE = 500
+
+BOX_RANGE_X = Interval(1.0, 1.6)
+BOX_RANGE_Y = Interval(0.4, 1.1)
+BOX_RANGE_Z = Interval(0.4, 1)
 
 
 class RobotEnv(GoalEnv):
@@ -76,9 +81,13 @@ class RobotEnv(GoalEnv):
         self._step_callback()
         obs = self._get_obs()
 
-        # print(obs)
+        # early ternimation if the gripper is out of range
+        grip_pos = obs['observation'][:3]  # grip pos then object pos ...
+        if grip_pos[0] in BOX_RANGE_X and grip_pos[1] in BOX_RANGE_Y and grip_pos[2] in BOX_RANGE_Z:
+            done = False
+        else:
+            done = True
 
-        done = False
         info = {
             'is_success': self._is_success(obs['achieved_goal'], self.goal),
         }
