@@ -36,7 +36,6 @@ import os
 import gym_rearrangement
 from gym_rearrangement.core.image_env import ImageEnv
 
-
 train_img_path = '/tmp/rearrange/train'
 os.makedirs(train_img_path, exist_ok=True)
 
@@ -56,9 +55,7 @@ for i in range(500):
     file_name = os.path.join(train_img_path, '{:0>3d}.png'.format(i))
     im = Image.fromarray(im)
     im.save(file_name)
-
     env.cv_render('external_camera_0') # render on screen with opencv
-
     if done:
         env.reset()
 ```
@@ -72,6 +69,8 @@ wrapper defined in `gym-rearrangement/core/flat_env.py`．
 We are include codes to generate dataset with relation or non-relations questions,
 which allows us to learn relations with graph neural networks. We argue that
 relation is a key feature for rearrangement task. 
-<img src="images/1174.png" alt="drawing" width="200"/>
-<img src="images/1597.png" alt="drawing" width="200"/>
+Some annotated samples are shown bellow:
 
+<img src="images/1174.png" alt="vqa sample" width="200"/>
+<img src="images/1597.png" alt="vqa sample" width="200"/>
+<img src="images/37845.png" alt="vqa sample" width="200"/>
