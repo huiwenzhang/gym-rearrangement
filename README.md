@@ -71,6 +71,14 @@ which allows us to learn relations with graph neural networks. We argue that
 relation is a key feature for rearrangement task. 
 Some annotated samples are shown bellow:
 
-<img src="images/1174.png" alt="vqa sample" width="200"/>
-<img src="images/1597.png" alt="vqa sample" width="200"/>
-<img src="images/37845.png" alt="vqa sample" width="200"/>
+<img src="images/1174.png" alt="vqa sample" width="200"/> <img src="images/1597.png" alt="vqa sample" width="200"/> <img src="images/37845.png" alt="vqa sample" width="200"/>
+
+## Supported environments
+- FecthPickAndPlace-v2: a variation of the gym FetchPickAndPlace-v1 env.
+- FetchRearrangement{2,3,4,6}-v1: rearrangement task with 2,3,4,6 objects
+
+**Note: All of the enviroments support multiple kinds of reward type, such as sparse and dense**
+
+## References
+- OpenAI gym: https://github.com/openai/gym
+- Multiworld: https://github.com/vitchyr/multiworld
