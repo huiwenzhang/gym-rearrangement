@@ -63,14 +63,16 @@ class FetchEnv(robot_env.RobotEnv):
         goal = obs['desired_goal']
         grip_pos = obs['observation'][:3]
         d1 = goal_distance(achieved_goal, goal)
-        d2 = goal_distance(grip_pos, achieved_goal)
+        if goal.shape[0] <= 3:
+            d2 = goal_distance(grip_pos, achieved_goal)
+        else: # more objects
+            # TODO: distance for mulitple objects
+            d2 = 0
         d = d1 + d2
-        # TODO: distance for mulitple objects
 
         # sparse reward: either 0 or 1 reward
         if self.reward_type == 'sparse':
-            return -(d1 > self.distance_threshold).astype(np.float32) - (
-                        d2 > self.distance_threshold).astype(np.float32)
+            return -(d1 > self.distance_threshold).astype(np.float32)
         else:
             return -d
 
@@ -125,6 +127,7 @@ class FetchEnv(robot_env.RobotEnv):
             achieved_goal = grip_pos.copy()
         else:
             achieved_goal = np.squeeze(object_pos.copy())
+        # TODO: check if the included feature is useful for the task
         obs = np.concatenate([
             grip_pos, object_pos.ravel(), object_rel_pos.ravel(), gripper_state, object_rot.ravel(),
             object_velp.ravel(), object_velr.ravel(), grip_velp, gripper_vel,

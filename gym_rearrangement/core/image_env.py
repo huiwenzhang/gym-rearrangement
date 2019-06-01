@@ -6,6 +6,7 @@ import sys
 import shutil
 import numpy as np
 from PIL import Image
+import imageio
 from gym.spaces import Box, Dict
 
 from gym_rearrangement.core.goal_env import GoalEnv
@@ -163,7 +164,8 @@ class ImageEnv(ProxyEnv, GoalEnv):
             img_obs = Image.fromarray(img_obs).convert('L')
             img_obs = np.array(img_obs)
         if self.transform:
-            img_obs = np.flip(img_obs)
+            img_obs = Image.fromarray(img_obs).rotate(180)
+            img_obs = np.array(img_obs)
         if self.normalize:
             img_obs = img_obs / 255.
         return img_obs.flatten()
@@ -242,13 +244,13 @@ class ImageEnv(ProxyEnv, GoalEnv):
                     A[i * NUM_Q, NUM_COLOR + 1] = True
 
                 # Q2: bottom?
-                if rep.x[i] > (TABLE_CENTER[0]):
+                if rep.x[i] > (TABLE_CENTER[0] + 0.1):
                     A[i * NUM_Q + 1, NUM_COLOR + 2] = True
                 else:
                     A[i * NUM_Q + 1, NUM_COLOR + 3] = True
 
                 # Q3: left?
-                if rep.y[i] < (TABLE_CENTER[1]):
+                if rep.y[i] > (TABLE_CENTER[1]):
                     A[i * NUM_Q + 2, NUM_COLOR + 2] = True
                 else:
                     A[i * NUM_Q + 2, NUM_COLOR + 3] = True
@@ -316,14 +318,14 @@ class ImageEnv(ProxyEnv, GoalEnv):
 
         if self.save_img:
             file_name = os.path.join(self.save_img_path, 'goal_img.png')
-            cv2.imwrite(file_name, goal_img)
-            cv2.waitKey(1)
+            im = Image.fromarray(goal_img)
+            im.save(file_name)
         return flat_img
 
     def cv_render(self, camera_name=None):
         img_obs = self.wrapped_env.get_image(
-            width=200,
-            height=200,
+            width=256,
+            height=256,
             camera_name=camera_name
         )
         if camera_name == self.default_camera:
@@ -345,3 +347,15 @@ class ImageEnv(ProxyEnv, GoalEnv):
             return self.unnormalize_img(img).reshape(self.imsize, self.imsize, -1)
         else:
             return img.reshape(self.imsize, self.imsize, -1)
+
+    def make_gif(self, path=None):
+        if path is None:
+            path = '/tmp/rearrange_learning/gym.gif'
+        with imageio.get_writer(path, mode='I') as writer:
+            if not os.listdir(self.save_img_path):
+                raise ValueError('the target directory is empty')
+            else:
+                for img_file in os.listdir(self.save_img_path):
+                    if img_file.endswith('png') and not img_file.startswith('goal'):
+                        img = imageio.read(os.path.join(self.save_img_path, img_file))
+                        writer.append_data(img)

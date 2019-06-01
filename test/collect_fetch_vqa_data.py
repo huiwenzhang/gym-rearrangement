@@ -3,7 +3,7 @@ Collect vqa dataset in fetch rearrangement task
 """
 
 import gym
-import cv2
+from PIL import Image
 import os
 import gym_rearrangement
 from gym_rearrangement.core.image_env import ImageEnv
@@ -23,7 +23,8 @@ for i in range(2000):
     im = obs['img_obs']
     im = env.recover_img(im)
     file_name = os.path.join(env.save_img_path, '{:0>3d}.png'.format(i))
-    cv2.imwrite(file_name, im)
+    im = Image.fromarray(im)
+    im.save(file_name)
     env.cv_render('external_camera_0')
 
     if done:

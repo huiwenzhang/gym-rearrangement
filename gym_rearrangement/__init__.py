@@ -82,5 +82,5 @@ for reward_type in ['sparse', 'dense']:
             id='FetchRearrangement{}{}-v1'.format(n_object, suffix),
             entry_point='gym_rearrangement.envs:Rearrangement',
             kwargs=kwargs,
-            max_episode_steps=150,
+            max_episode_steps=1,
         )

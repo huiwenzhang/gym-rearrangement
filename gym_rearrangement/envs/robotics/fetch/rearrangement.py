@@ -154,8 +154,11 @@ class Rearrangement(fetch_env.FetchEnv, EzPickle):
             object_qpos = self.sim.data.get_joint_qpos(object_joint_name)
             assert object_qpos.shape == (7,)
             object_qpos[:2] = object_xpos
-            object_pos = object_qpos[:3]  # only position
-            goal_pos.append(object_pos)
+            object_xpos = object_qpos[:3]
+            # TODO: should we generate the goal image here
+            # self.sim.data.set_joint_qpos(object_joint_name, object_qpos)
+            goal_pos.append(object_xpos)
+
         goal_pos = np.array(goal_pos)
         return np.squeeze(goal_pos.flatten())
 
