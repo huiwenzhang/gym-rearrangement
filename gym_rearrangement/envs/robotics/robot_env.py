@@ -39,6 +39,7 @@ class RobotEnv(GoalEnv):
         self.viewer = None
         self.data = self.sim.data
         self._viewers = {}
+        self._step_cnt = 0  # number of steps run so far
 
         self.metadata = {
             'render.modes': ['human', 'rgb_array'],
@@ -81,17 +82,21 @@ class RobotEnv(GoalEnv):
         self._step_callback()
         obs = self._get_obs()
 
-        # early ternimation if the gripper is out of range
-        grip_pos = obs['observation'][:3]  # grip pos then object pos ...
-        if grip_pos[0] in BOX_RANGE_X and grip_pos[1] in BOX_RANGE_Y and grip_pos[2] in BOX_RANGE_Z:
-            done = False
-        else:
-            done = True
-
         info = {
             'is_success': self._is_success(obs['achieved_goal'], self.goal),
         }
         reward = self.compute_reward(obs)
+
+        # early termination if the gripper is out of range
+        grip_pos = obs['observation'][:3]  # grip pos then object pos ...
+        if grip_pos[0] in BOX_RANGE_X and grip_pos[1] in BOX_RANGE_Y and grip_pos[2] in BOX_RANGE_Z:
+            done = False
+        else:
+            print('Early terminate for out of range actions')
+            done = True
+            reward = -50  # penalty to void early terminate policy
+
+        self._step_cnt += 1  # Update step number
         return obs, reward, done, info
 
     def reset(self):

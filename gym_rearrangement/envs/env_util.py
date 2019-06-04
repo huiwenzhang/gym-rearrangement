@@ -107,6 +107,7 @@ def get_stat_in_paths(paths, dict_name, scalar_name):
 def get_asset_full_path(file_name):
     return os.path.join(ENV_ASSET_DIR, file_name)
 
+
 def concatenate_box_spaces(*spaces):
     """
     Assumes dtypes of all spaces are the of the same type
@@ -114,3 +115,26 @@ def concatenate_box_spaces(*spaces):
     low = np.concatenate([space.low for space in spaces])
     high = np.concatenate([space.high for space in spaces])
     return Box(low=low, high=high, dtype=np.float32)
+
+
+def linear_schedule(initial_value):
+    """
+    Linear weights schedule between object-target distance and gripper-object distance
+
+    :param initial_value: (float or str)
+    :return: (function)
+    """
+    if isinstance(initial_value, str):
+        initial_value = float(initial_value)
+
+    def func(progress):
+        """
+        Progress will decrease from 1 (beginning) to 0
+        :param progress: (float)
+        :return: (float)
+        """
+        reach_weight = 1 - progress
+        place_weight = progress
+        return reach_weight, place_weight if progress < 0.5 else 0.5, 0.5
+
+    return func
