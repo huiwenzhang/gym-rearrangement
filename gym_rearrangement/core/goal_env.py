@@ -54,7 +54,6 @@ class GoalEnv(gym.Env, metaclass=abc.ABCMeta):
     Implement the batch-version of these functions.
     """
 
-    @abc.abstractmethod
     def _sample_goal(self):
         """
         :param batch_size:

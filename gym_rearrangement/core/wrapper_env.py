@@ -103,3 +103,4 @@ class NormalizedBoxEnv(ProxyEnv, Serializable):
 
     def __str__(self):
         return "Normalized: %s" % self._wrapped_env
+

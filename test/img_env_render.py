@@ -11,13 +11,16 @@ Test of the fetch environment
 import gym
 import gym_rearrangement
 from gym_rearrangement.core.image_env import ImageEnv
+from gym_rearrangement.core.frame_stack import FrameStack
+import numpy as np
 
 # Initialize the "rearrangement" environment
 env = gym.make("FetchRearrangement3-v1")
 env = ImageEnv(env, reward_type='img_distance', img_size=128)
+env = FrameStack(env, n_frames=4)
 
 obs = env.reset()
-print(obs)
+print(np.array(obs['img_obs']).shape)
 for i in range(500):
     action = env.action_space.sample()
     obs, rew, done, info = env.step(action)
