@@ -19,7 +19,7 @@ DEFAULT_SIZE = 500
 
 BOX_RANGE_X = Interval(1.0, 1.6)
 BOX_RANGE_Y = Interval(0.4, 1.1)
-BOX_RANGE_Z = Interval(0.4, 1)
+BOX_RANGE_Z = Interval(0.3, 1)
 
 
 class RobotEnv(GoalEnv):
@@ -95,6 +95,10 @@ class RobotEnv(GoalEnv):
             print('Early terminate for out of range actions')
             done = True
             reward = -50  # penalty to void early terminate policy
+
+        if info['is_success']:
+            print('Success')
+            done = True
 
         self._step_cnt += 1  # Update step number
         return obs, reward, done, info

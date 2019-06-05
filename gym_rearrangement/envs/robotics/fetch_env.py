@@ -62,6 +62,7 @@ class FetchEnv(robot_env.RobotEnv):
         achieved_goal = obs['achieved_goal']  # achieved goal is the current pos of object
         goal = obs['desired_goal']
         grip_pos = obs['observation'][:3]
+        # print('achieved goal: {}, goal: {}, gripper pos: {}'.format(achieved_goal, goal, grip_pos))
         d1 = goal_distance(achieved_goal, goal)
         if goal.shape[0] <= 3:
             d2 = goal_distance(grip_pos, achieved_goal)
@@ -70,7 +71,7 @@ class FetchEnv(robot_env.RobotEnv):
             d2 = 0
         # if goal is reached (threshhold: 5cm), there is no need to reach the object
         d2 = 0 if d1 <= self.distance_threshold else d2
-        d = d1 + d2
+        d = d1 + 1.2 * d2  # give more weights for reaching stage
 
         # sparse reward: either 0 or 1 reward
         if self.reward_type == 'sparse':
