@@ -23,7 +23,7 @@ TABLE_CENTER = [1.3, 0.75]  # Unit: meters
 
 class ImageEnv(ProxyEnv, GoalEnv):
     """
-    A wrapper used to retrieve image based observations
+    A wrapper used to retrieve image-based observations
     """
 
     def __init__(self,
@@ -32,10 +32,9 @@ class ImageEnv(ProxyEnv, GoalEnv):
                  init_camera=None,
                  transform=True,
                  grayscale=False,
-                 normalize=True,
+                 normalize=False,
                  reward_type='wrapped_env',
-                 threshold=10,
-                 img_len=None,
+                 threshold=5,
                  recompute_reward=True,
                  save_img=False,
                  save_img_path=None,
@@ -53,7 +52,6 @@ class ImageEnv(ProxyEnv, GoalEnv):
         :param normalize:
         :param reward_type:
         :param threshold:
-        :param img_len:
         :param recompute_reward:
         :param save_img: save image in a folder
         :param collect_data: collect vqa datasets on each step
@@ -70,14 +68,7 @@ class ImageEnv(ProxyEnv, GoalEnv):
         self.collect_data = collect_data
         self.dataset_size = data_size
 
-        if img_len is not None:
-            self.img_len = img_len
-        else:
-            if grayscale:
-                self.img_len = self.imsize ** 2
-            else:
-                self.img_len = 3 * self.imsize ** 2
-        self.channels = 1 if grayscale else 3  # gray or RGB
+        self.channels = (1,) if grayscale else (3,)  # gray or RGB
         self.img_shape = (self.imsize, self.imsize)
 
         # Init camera
@@ -85,7 +76,14 @@ class ImageEnv(ProxyEnv, GoalEnv):
             # the initialize_camera func is defined in robot_env class
             sim = self.wrapped_env.init_camera(init_camera)
 
-        img_space = Box(0, 1, (self.img_len,), dtype=np.float32)
+        # img_space = Box(0, 1, (self.img_len,), dtype=np.float32)
+        # Using image observations, RGB image with (h, w, c)
+        if self.normalize:
+            img_space = Box(low=0, high=1, shape=self.img_shape + self.channels,
+                            dtype=np.float32)
+        else:
+            img_space = Box(low=0, high=255, shape=self.img_shape + self.channels,
+                            dtype=np.uint8)
 
         # Extended observation space
         spaces = self.wrapped_env.observation_space.spaces.copy()
@@ -105,6 +103,7 @@ class ImageEnv(ProxyEnv, GoalEnv):
         else:
             self.save_img_path = save_img_path
 
+        # Clean up original files under the folder
         if self.save_img:
             if os.path.exists(self.save_img_path):
                 shutil.rmtree(self.save_img_path)
@@ -115,7 +114,6 @@ class ImageEnv(ProxyEnv, GoalEnv):
             self.f = h5py.File(os.path.join(self.save_img_path, 'data.hy'), 'w')
             self.id_file = open(os.path.join(self.save_img_path, 'id.txt'), 'w')
 
-        # TODO: given an image goal
         self._img_goal = self._sample_goal()  # sample an image goal
 
     def step(self, action):
@@ -137,7 +135,7 @@ class ImageEnv(ProxyEnv, GoalEnv):
         self.wrapped_env.render(*args, **kwargs)
 
     def _update_obs(self, obs):
-        img_obs = self._get_flat_img()
+        img_obs = self._get_img()
         obs['img_obs'] = img_obs
         obs['img_desired_goal'] = self._img_goal
         obs['img_achieved_goal'] = img_obs
@@ -148,13 +146,17 @@ class ImageEnv(ProxyEnv, GoalEnv):
     def _update_info(self, info, obs):
         achieved_goal = obs['img_achieved_goal']
         desired_goal = self._img_goal
+        # compute normalized distance
+        if not self.normalize:
+            achieved_goal = self.normalize_img(achieved_goal)
+            desired_goal = self.normalize_img(desired_goal)
+        # TODO: compute distance in pixel space, is it reasonable?
         img_dist = np.linalg.norm(achieved_goal - desired_goal)
         img_success = (img_dist < self.threshold).astype(float)
         info['dist'] = img_dist
         info['img_success'] = img_success
 
-    def _get_flat_img(self):
-        # flatten the image to a vector
+    def _get_img(self):
         img_obs = self.wrapped_env.get_image(
             width=self.imsize,
             height=self.imsize,
@@ -168,13 +170,13 @@ class ImageEnv(ProxyEnv, GoalEnv):
             img_obs = np.array(img_obs)
         if self.normalize:
             img_obs = img_obs / 255.
-        return img_obs.flatten()
+        return img_obs
 
     # Goal env methods and abstract method implementations
     def get_goal(self):
         goal = self.wrapped_env.get_goal()
-        goal['desired_goal'] = self._img_goal
-        goal['img_desired_goal'] = self._img_goal
+        # goal['desired_goal'] = self._img_goal
+        goal['img_desired_goal'] = self._img_goal  # only update img goal
         return goal
 
     def set_goal(self, goal):
@@ -182,19 +184,25 @@ class ImageEnv(ProxyEnv, GoalEnv):
 
     def compute_reward(self, obs):
         """
-        image distance, we can also use state distance by seting reward_type = wrapped_env
+        image distance, we can also use state distance by setting reward_type = wrapped_env
         :param obs:
         :return:
         """
-        achieved_goals = obs['img_achieved_goal']
+        achieved_goal = obs['img_achieved_goal']
         desired_goal = obs['img_desired_goal']
-        dist = np.linalg.norm(achieved_goals - desired_goal)
+        # compute normalized distance
+        if not self.normalize:
+            achieved_goal = self.normalize_img(achieved_goal)
+            desired_goal = self.normalize_img(desired_goal)
+        dist = np.linalg.norm(achieved_goal - desired_goal)
         if self.reward_type == 'img_distance':
             return -dist
         elif self.reward_type == 'img_sparse':
             return -(dist > self.threshold).astype(float)
         elif self.reward_type == 'wrapped_env':
             return self.wrapped_env.compute_reward(obs)
+        elif self.reward_type == 'img_hidden_space':  # compute distance in hidden space with encoders
+            raise NotImplementedError
         else:
             raise NotImplementedError
 
@@ -212,8 +220,8 @@ class ImageEnv(ProxyEnv, GoalEnv):
     def generate_vqa_data(self, obs):
 
         def generate_image():
-            flat_img = obs['img_obs']
-            img = self.recover_img(flat_img)
+            img = obs['img_obs']
+            img = self.recover_img(img)
             rep = Representation(np.stack(self.wrapped_env.X).astype(np.float),
                                  np.stack(self.wrapped_env.Y).astype(np.float),
                                  self.wrapped_env.color, self.wrapped_env.shape)
@@ -313,16 +321,18 @@ class ImageEnv(ProxyEnv, GoalEnv):
             self.wrapped_env.sim.data.set_joint_qpos(object_joint_name, object_qpos)
         self.wrapped_env.sim.forward()
 
-        flat_img = self._get_flat_img()
-        goal_img = self.recover_img(flat_img)
+        img = self._get_img()
+        goal_img = self.recover_img(img)
 
         if self.save_img:
             file_name = os.path.join(self.save_img_path, 'goal_img.png')
             im = Image.fromarray(goal_img)
             im.save(file_name)
-        return flat_img
+        return img
 
     def cv_render(self, camera_name=None):
+        if camera_name is None:
+            camera_name = self.default_camera
         img_obs = self.wrapped_env.get_image(
             width=256,
             height=256,
@@ -339,14 +349,14 @@ class ImageEnv(ProxyEnv, GoalEnv):
 
     def recover_img(self, img):
         """
-        recover image from flat normalized vector
+        recover image from normalized vector
         :param img:
         :return:
         """
         if self.normalize:
-            return self.unnormalize_img(img).reshape(self.imsize, self.imsize, -1)
+            return self.unnormalize_img(img)
         else:
-            return img.reshape(self.imsize, self.imsize, -1)
+            return img
 
     def make_gif(self, path=None):
         if path is None:

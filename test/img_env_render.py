@@ -21,6 +21,6 @@ print(obs)
 for i in range(500):
     action = env.action_space.sample()
     obs, rew, done, info = env.step(action)
-    env.render() # render on screen
+    env.cv_render()  # render on screen with opencv
     if done:
         env.reset()
