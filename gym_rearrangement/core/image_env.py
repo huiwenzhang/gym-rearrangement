@@ -1,6 +1,7 @@
 import os
 import shutil
 import sys
+from datetime import datetime
 
 import cv2
 import h5py
@@ -356,12 +357,16 @@ class ImageEnv(ProxyEnv, GoalEnv):
 
     def make_gif(self, path=None):
         if path is None:
-            path = '/tmp/rearrange_learning/gym.gif'
+            path = '/tmp/arrange_learning/'
+        if not os.path.isdir(path):
+            print('A directory should be given')
+            return
+        path = os.path.join(path, 'gym-{}.gif'.format(datetime.now().strftime('%Y-%m-%d-%H-%M')))
         with imageio.get_writer(path, mode='I') as writer:
             if not os.listdir(self.save_img_path):
                 raise ValueError('the target directory is empty')
             else:
                 for img_file in os.listdir(self.save_img_path):
                     if img_file.endswith('png') and not img_file.startswith('goal'):
-                        img = imageio.read(os.path.join(self.save_img_path, img_file))
+                        img = imageio.imread(os.path.join(self.save_img_path, img_file))
                         writer.append_data(img)
