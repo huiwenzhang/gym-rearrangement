@@ -26,7 +26,7 @@ class GoalEnv(gym.Env, metaclass=abc.ABCMeta):
                     'GoalEnv requires the "{}" key to be part of the observation dictionary.'.format(
                         key))
 
-    def compute_reward(self, obs):
+    def compute_rewards(self, obs):
         """Compute the step reward. This externalizes the reward function and makes
         it dependent on an a desired goal and the one that was achieved. If you wish to include
         additional rewards that are independent of the goal, you can include the necessary values

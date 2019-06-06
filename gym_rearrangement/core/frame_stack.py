@@ -1,20 +1,9 @@
-import random
-import os
-import h5py
-import cv2
-import sys
-import shutil
-import numpy as np
-from PIL import Image
-import imageio
-from gym.spaces import Box, Dict
+from collections import deque
 
+import numpy as np
+from gym.spaces import Box, Dict
 from gym_rearrangement.core.goal_env import GoalEnv
 from gym_rearrangement.core.wrapper_env import ProxyEnv
-from collections import deque
-import numpy as np
-from gym import spaces
-import cv2
 
 # Parameters for random object positions
 TABLE_SIZE = 0.5 * 100
@@ -40,11 +29,13 @@ class FrameStack(ProxyEnv, GoalEnv):
         super().__init__(wrapped_env)  # initialize parent class proxy env for serialize
         self.n_frames = n_frames
         self.frames = deque([], maxlen=n_frames)
+        spaces = wrapped_env.observation_space.spaces.copy()
         shp = wrapped_env.observation_space.spaces['img_obs'].shape
-        self.observation_space = spaces.Box(low=0, high=255,
-                                            shape=(shp[0], shp[1], shp[2] * n_frames),
-                                            dtype=wrapped_env.observation_space.spaces[
-                                                'img_obs'].dtype)
+        spaces['img_obs'] = Box(low=0, high=255,
+                                shape=(shp[0], shp[1], shp[2] * n_frames),
+                                dtype=wrapped_env.observation_space.spaces[
+                                    'img_obs'].dtype)
+        self.observation_space = Dict(spaces)
         self.action_space = self.wrapped_env.action_space
 
     def reset(self):

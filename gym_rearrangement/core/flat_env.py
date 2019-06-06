@@ -36,6 +36,11 @@ class FlatGoalEnv(ProxyEnv):
         else:
             keys = self.obs_keys
 
+        for i in range(len(keys) - 1):
+            shp1 = self.wrapped_env.observation_space.spaces[keys[i]].shape
+            shp2 = self.wrapped_env.observation_space.spaces[keys[i + 1]].shape
+            assert shp1 == shp2, 'Dimension does not match, cannot stack these features'
+
         self.observation_space = Box(
             np.hstack([
                 self.wrapped_env.observation_space.spaces[k].low

@@ -1,12 +1,11 @@
-import os
 import copy
-import numpy as np
-from interval import Interval
+import os
 
-import gym
+import numpy as np
 from gym import error, spaces
 from gym.utils import seeding
 from gym_rearrangement.core.goal_env import GoalEnv
+from interval import Interval
 
 try:
     import mujoco_py
@@ -85,7 +84,7 @@ class RobotEnv(GoalEnv):
         info = {
             'is_success': self._is_success(obs['achieved_goal'], self.goal),
         }
-        reward = self.compute_reward(obs)
+        reward = self.compute_rewards(obs)
 
         # early termination if the gripper is out of range
         grip_pos = obs['observation'][:3]  # grip pos then object pos ...
@@ -121,6 +120,31 @@ class RobotEnv(GoalEnv):
             self.viewer = None
             self._viewers = {}
 
+    def compute_rewards(self, obs):
+        # Compute distance between goal and the achieved goal.
+        # Maybe the distance between gripper and object should be included
+        # So it is two stage task: approximate the object, pick it to the goal
+        # rewards = (grip_pos - object_pos)**2 + (target_pos - ojbect_pos)**2
+        achieved_goal = obs['achieved_goal']  # achieved goal is the current pos of object
+        goal = obs['desired_goal']
+        grip_pos = obs['observation'][:3]
+        # print('achieved goal: {}, goal: {}, gripper pos: {}'.format(achieved_goal, goal, grip_pos))
+        d1 = self.goal_distance(achieved_goal, goal)
+        if goal.shape[0] <= 3:
+            d2 = self.goal_distance(grip_pos, achieved_goal)
+        else:  # more objects
+            # TODO: distance for mulitple objects
+            d2 = 0
+        # if goal is reached (threshhold: 5cm), there is no need to reach the object
+        d2 = 0 if d1 <= self.distance_threshold else d2
+        d = d1 + 1.2 * d2  # give more weights for reaching stage
+
+        # sparse reward: either 0 or 1 reward
+        if self.reward_type == 'sparse':
+            return -(d1 > self.distance_threshold).astype(np.float32)
+        else:
+            return -d
+
     def render(self, mode='human', width=DEFAULT_SIZE, height=DEFAULT_SIZE):
         self._render_callback()
         if mode == 'rgb_array':
@@ -142,6 +166,11 @@ class RobotEnv(GoalEnv):
             self._viewer_setup()  # set camera etc.
             self._viewers[mode] = self.viewer
         return self.viewer
+
+    @staticmethod
+    def goal_distance(goal_a, goal_b):
+        assert goal_a.shape == goal_b.shape
+        return np.linalg.norm(goal_a - goal_b, axis=-1)
 
     # Extension methods
     # ----------------------------

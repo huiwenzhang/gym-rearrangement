@@ -1,18 +1,14 @@
-import random
 import os
-import h5py
-import cv2
-import sys
 import shutil
-import numpy as np
-from PIL import Image
-import imageio
-from gym.spaces import Box, Dict
+import sys
 
+import cv2
+import h5py
+import imageio
+from PIL import Image
+from gym.spaces import Box, Dict
 from gym_rearrangement.core.goal_env import GoalEnv
 from gym_rearrangement.core.wrapper_env import ProxyEnv
-from gym_rearrangement.envs.env_util import concatenate_box_spaces
-from gym_rearrangement.envs.env_util import get_stat_in_paths, create_stats_ordered_dict
 from vqa_utils import *
 
 # Parameters for random object positions
@@ -123,7 +119,7 @@ class ImageEnv(ProxyEnv, GoalEnv):
         if self.collect_data:
             self.generate_vqa_data(new_obs)
         if self.recompute_reward:
-            reward = self.compute_reward(new_obs)
+            reward = self.compute_rewards(new_obs)
         self._update_info(info, obs)
         return new_obs, reward, done, info
 
@@ -144,12 +140,12 @@ class ImageEnv(ProxyEnv, GoalEnv):
         return obs
 
     def _update_info(self, info, obs):
-        achieved_goal = obs['img_achieved_goal']
-        desired_goal = self._img_goal
+        img_achieved_goal = obs['img_achieved_goal']
+        img_desired_goal = self._img_goal
         # compute normalized distance
         if not self.normalize:
-            achieved_goal = self.normalize_img(achieved_goal)
-            desired_goal = self.normalize_img(desired_goal)
+            achieved_goal = self.normalize_img(img_achieved_goal)
+            desired_goal = self.normalize_img(img_desired_goal)
         # TODO: compute distance in pixel space, is it reasonable?
         img_dist = np.linalg.norm(achieved_goal - desired_goal)
         img_success = (img_dist < self.threshold).astype(float)
@@ -182,7 +178,7 @@ class ImageEnv(ProxyEnv, GoalEnv):
     def set_goal(self, goal):
         self._img_goal = goal['img_desired_goal']
 
-    def compute_reward(self, obs):
+    def compute_rewards(self, obs):
         """
         image distance, we can also use state distance by setting reward_type = wrapped_env
         :param obs:
@@ -200,7 +196,7 @@ class ImageEnv(ProxyEnv, GoalEnv):
         elif self.reward_type == 'img_sparse':
             return -(dist > self.threshold).astype(float)
         elif self.reward_type == 'wrapped_env':
-            return self.wrapped_env.compute_reward(obs)
+            return self.wrapped_env.compute_rewards(obs)
         elif self.reward_type == 'img_hidden_space':  # compute distance in hidden space with encoders
             raise NotImplementedError
         else:

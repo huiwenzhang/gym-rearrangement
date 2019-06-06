@@ -2,25 +2,23 @@
 Test of the fetch environment
 """
 
-# Optional fetch env id:
-# - FetchReach-v1
-# - FetchSlide-v1
-# - FetchPush-v1
-# - FetchPickAndPlace-v1
-
 import gym
-import gym_rearrangement
-from gym_rearrangement.core.image_env import ImageEnv
+from gym_rearrangement.core.flat_env import FlatGoalEnv
 from gym_rearrangement.core.frame_stack import FrameStack
-import numpy as np
+# import gym_rearrangement
+from gym_rearrangement.core.image_env import ImageEnv
 
 # Initialize the "rearrangement" environment
-env = gym.make("FetchRearrangement3-v1")
-env = ImageEnv(env, reward_type='img_distance', img_size=128)
+env = gym.make("FetchPickAndPlaceDense-v2")
+print(env.observation_space.spaces)
+env = ImageEnv(env, reward_type='wrapped_env', img_size=128)
 env = FrameStack(env, n_frames=4)
+print(env.observation_space.spaces)
+env = FlatGoalEnv(env, obs_keys=['img_obs'])
+
+print(env.observation_space.shape)
 
 obs = env.reset()
-print(np.array(obs['img_obs']).shape)
 for i in range(500):
     action = env.action_space.sample()
     obs, rew, done, info = env.step(action)

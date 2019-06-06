@@ -1,11 +1,11 @@
 import numpy as np
 
-from gym_rearrangement.envs.robotics import rotations, robot_env, utils, cameras_setup
+from gym_rearrangement.envs.robotics import rotations, robot_env, utils
 
 
-def goal_distance(goal_a, goal_b):
-    assert goal_a.shape == goal_b.shape
-    return np.linalg.norm(goal_a - goal_b, axis=-1)
+# def goal_distance(goal_a, goal_b):
+#     assert goal_a.shape == goal_b.shape
+#     return np.linalg.norm(goal_a - goal_b, axis=-1)
 
 
 class FetchEnv(robot_env.RobotEnv):
@@ -50,34 +50,6 @@ class FetchEnv(robot_env.RobotEnv):
         super(FetchEnv, self).__init__(
             model_path=model_path, n_substeps=n_substeps, n_actions=4,
             initial_qpos=initial_qpos)
-
-    # GoalEnv methods
-    # ----------------------------
-
-    def compute_reward(self, obs):
-        # Compute distance between goal and the achieved goal.
-        # Maybe the distance between gripper and object should be included
-        # So it is two stage task: approximate the object, pick it to the goal
-        # rewards = (grip_pos - object_pos)**2 + (target_pos - ojbect_pos)**2
-        achieved_goal = obs['achieved_goal']  # achieved goal is the current pos of object
-        goal = obs['desired_goal']
-        grip_pos = obs['observation'][:3]
-        # print('achieved goal: {}, goal: {}, gripper pos: {}'.format(achieved_goal, goal, grip_pos))
-        d1 = goal_distance(achieved_goal, goal)
-        if goal.shape[0] <= 3:
-            d2 = goal_distance(grip_pos, achieved_goal)
-        else:  # more objects
-            # TODO: distance for mulitple objects
-            d2 = 0
-        # if goal is reached (threshhold: 5cm), there is no need to reach the object
-        d2 = 0 if d1 <= self.distance_threshold else d2
-        d = d1 + 1.2 * d2  # give more weights for reaching stage
-
-        # sparse reward: either 0 or 1 reward
-        if self.reward_type == 'sparse':
-            return -(d1 > self.distance_threshold).astype(np.float32)
-        else:
-            return -d
 
     # RobotEnv methods
     # ----------------------------
@@ -192,7 +164,7 @@ class FetchEnv(robot_env.RobotEnv):
         return goal.copy()
 
     def _is_success(self, achieved_goal, desired_goal):
-        d = goal_distance(achieved_goal, desired_goal)
+        d = self.goal_distance(achieved_goal, desired_goal)
         return (d < self.distance_threshold).astype(np.float32)
 
     def _env_setup(self, initial_qpos):

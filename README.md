@@ -65,6 +65,39 @@ Algorithms used for learning gym-based tasks usually accepts observations with a
 or gym.Discrete type. To make it work for our task, you need to flat the env with
 wrapper defined in `gym-rearrangement/core/flat_env.py`．
 
+## Wrappers
+We implement three main wrappers in total, they are:
+- image wrapper: add extra image observations for the original state observation
+- frame stack wrapper: used for envs with image-based observations. It will stack a number of 
+frames and feed them into your policy network
+- flat wrapper: To covert dict observations in robotics env to Box or Discrete spaces observations 
+which are compatible with the input of the rl algorithm
+
+**Note:** Since the wrappers are used in specific conditions, the order to use them is a key factor.
+For example, if you want to use the frame stack wrapper you need to wrapper a normal env with
+the image wrapper. Generally, the recommended usage sequences is as follows: 
+```python
+import gym
+from gym_rearrangement.core.image_env import ImageEnv
+from gym_rearrangement.core.flat_env import FlatGoalEnv
+from gym_rearrangement.core.frame_stack import FrameStack
+
+
+env = gym.make("FetchPickAndPlaceDense-v2")
+env = ImageEnv(env, reward_type='wrapped_env', img_size=128)
+env = FrameStack(env, n_frames=4)
+env = FlatGoalEnv(env, obs_keys=['img_obs'])
+
+
+obs = env.reset()
+for i in range(500):
+    action = env.action_space.sample()
+    obs, rew, done, info = env.step(action)
+    env.cv_render()  # render on screen with opencv
+    if done:
+        env.reset()
+```
+
 ## Learning relations between objects
 We are include codes to generate dataset with relation or non-relations questions,
 which allows us to learn relations with graph neural networks. We argue that
