@@ -69,11 +69,11 @@ for reward_type in ['sparse', 'dense']:
         id='FetchPickAndPlace{}-v2'.format(suffix),
         entry_point='gym_rearrangement.envs:FetchPickAndPlaceEnv',
         kwargs=kwargs,
-        max_episode_steps=100,
+        max_episode_steps=200,
     )
 
     # Fetch rearrangement
-    for n_object in [2, 3, 4, 6]:
+    for n_object in [1, 2, 3, 4, 6]:
         kwargs = {
             'reward_type': reward_type,
             'n_object': n_object,
@@ -82,5 +82,5 @@ for reward_type in ['sparse', 'dense']:
             id='FetchRearrangement{}{}-v1'.format(n_object, suffix),
             entry_point='gym_rearrangement.envs:Rearrangement',
             kwargs=kwargs,
-            max_episode_steps=1,
+            max_episode_steps=200,
         )

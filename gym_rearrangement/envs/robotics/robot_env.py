@@ -4,25 +4,30 @@ import os
 import numpy as np
 from gym import error, spaces
 from gym.utils import seeding
-from gym_rearrangement.core.goal_env import GoalEnv
 from interval import Interval
+
+from gym_rearrangement.core.goal_env import GoalEnv
 
 try:
     import mujoco_py
 except ImportError as e:
     raise error.DependencyNotInstalled(
-        "{}. (HINT: you need to install mujoco_py, and also perform the setup instructions here: https://github.com/openai/mujoco-py/.)".format(
-            e))
+        "{}. (HINT: you need to install mujoco_py, and also perform the setup instructions here: "
+        "https://github.com/openai/mujoco-py/.)".format(e))
 
 DEFAULT_SIZE = 500
 
-BOX_RANGE_X = Interval(1.0, 1.6)
-BOX_RANGE_Y = Interval(0.4, 1.1)
-BOX_RANGE_Z = Interval(0.3, 1)
+# BOX_RANGE_X = Interval(1.0, 1.6)
+# BOX_RANGE_Y = Interval(0.4, 1.1)
+# BOX_RANGE_Z = Interval(0.3, 1)
+
+BOX_RANGE_X = Interval(0.5, 2.0)
+BOX_RANGE_Y = Interval(0., 1.5)
+BOX_RANGE_Z = Interval(0.3, 1.5)
 
 
 class RobotEnv(GoalEnv):
-    def __init__(self, model_path, initial_qpos, n_actions, n_substeps):
+    def __init__(self, model_path, initial_qpos, n_actions, n_substeps, n_object):
         print("test in RobotEnv")
         if model_path.startswith('/'):
             fullpath = model_path
@@ -39,6 +44,7 @@ class RobotEnv(GoalEnv):
         self.data = self.sim.data
         self._viewers = {}
         self._step_cnt = 0  # number of steps run so far
+        self.n_object = n_object  # No. of objects in the env
 
         self.metadata = {
             'render.modes': ['human', 'rgb_array'],
@@ -68,7 +74,6 @@ class RobotEnv(GoalEnv):
         return self.sim.model.opt.timestep * self.sim.nsubsteps
 
     # Env methods
-    # ----------------------------
 
     def seed(self, seed=None):
         self.np_random, seed = seeding.np_random(seed)
@@ -93,7 +98,7 @@ class RobotEnv(GoalEnv):
         else:
             print('Early terminate for out of range actions')
             done = True
-            reward = -50  # penalty to void early terminate policy
+            reward = -100  # penalty to void early terminate policy
 
         if info['is_success']:
             print('Success')
@@ -133,11 +138,11 @@ class RobotEnv(GoalEnv):
         if goal.shape[0] <= 3:
             d2 = self.goal_distance(grip_pos, achieved_goal)
         else:  # more objects
-            # TODO: distance for mulitple objects
+            # TODO: distance between each object and gripper
             d2 = 0
         # if goal is reached (threshhold: 5cm), there is no need to reach the object
         d2 = 0 if d1 <= self.distance_threshold else d2
-        d = d1 + 1.2 * d2  # give more weights for reaching stage
+        d = 1.2 * d1 + d2  # give more weights for reaching stage
 
         # sparse reward: either 0 or 1 reward
         if self.reward_type == 'sparse':

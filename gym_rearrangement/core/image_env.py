@@ -29,7 +29,7 @@ class ImageEnv(ProxyEnv, GoalEnv):
                  init_camera=None,
                  transform=True,
                  grayscale=False,
-                 normalize=False,
+                 normalize=True,
                  reward_type='wrapped_env',
                  threshold=5,
                  recompute_reward=True,
@@ -145,10 +145,10 @@ class ImageEnv(ProxyEnv, GoalEnv):
         img_desired_goal = self._img_goal
         # compute normalized distance
         if not self.normalize:
-            achieved_goal = self.normalize_img(img_achieved_goal)
-            desired_goal = self.normalize_img(img_desired_goal)
+            img_achieved_goal = self.normalize_img(img_achieved_goal)
+            img_desired_goal = self.normalize_img(img_desired_goal)
         # TODO: compute distance in pixel space, is it reasonable?
-        img_dist = np.linalg.norm(achieved_goal - desired_goal)
+        img_dist = np.linalg.norm(img_achieved_goal - img_desired_goal)
         img_success = (img_dist < self.threshold).astype(float)
         info['dist'] = img_dist
         info['img_success'] = img_success
@@ -361,7 +361,7 @@ class ImageEnv(ProxyEnv, GoalEnv):
         if not os.path.isdir(path):
             print('A directory should be given')
             return
-        path = os.path.join(path, 'gym-{}.gif'.format(datetime.now().strftime('%Y-%m-%d-%H-%M')))
+        path = os.path.join(path, 'fetch-{}.gif'.format(datetime.now().strftime('%Y-%m-%d-%H-%M')))
         with imageio.get_writer(path, mode='I') as writer:
             if not os.listdir(self.save_img_path):
                 raise ValueError('the target directory is empty')

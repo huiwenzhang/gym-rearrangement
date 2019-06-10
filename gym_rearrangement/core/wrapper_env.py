@@ -1,6 +1,6 @@
 from gym.spaces import Box
 
-from multiworld.core.serializable import Serializable
+from gym_rearrangement.core.serializable import Serializable
 import numpy as np
 
 

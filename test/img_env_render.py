@@ -9,7 +9,7 @@ from gym_rearrangement.core.frame_stack import FrameStack
 from gym_rearrangement.core.image_env import ImageEnv
 
 # Initialize the "rearrangement" environment
-env = gym.make("FetchPickAndPlaceDense-v2")
+env = gym.make("FetchRearrangement1-v1")
 print(env.observation_space.spaces)
 env = ImageEnv(env, reward_type='wrapped_env', img_size=128)
 env = FrameStack(env, n_frames=4)

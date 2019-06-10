@@ -1,19 +1,21 @@
 import os
-from gym_rearrangement.envs.robotics import fetch_env, utils, rotations
+
 import numpy as np
 from gym.utils import EzPickle
+
+from gym_rearrangement.envs.robotics import fetch_env, utils, rotations
 
 # Ensure we get the path separator correct on windows
 # MODEL_XML_PATH = os.path.join('fetch', 'rearrange_4.xml')
 
 # Parameters for random object positions
 N_GRID = 3
-TABLE_SIZE = 0.5 * 100
-TABLE_CORNER = [105, 50]  # right bottom corner
+TABLE_SIZE = 0.5 * 100  # width of the table, unit: cm
+TABLE_CORNER = [105, 50]  # right bottom corner, robot view
 
 
 class Rearrangement(fetch_env.FetchEnv, EzPickle):
-    def __init__(self, reward_type='sparse', n_object=4, visual_targets=False, fix_goal=False):
+    def __init__(self, reward_type='sparse', n_object=4, visual_targets=True, fix_goal=False):
         initial_qpos = {
             'robot0:slide0': 0.405,
             'robot0:slide1': 0.48,
@@ -28,14 +30,17 @@ class Rearrangement(fetch_env.FetchEnv, EzPickle):
             self, model_xml_path, has_object=True, block_gripper=False, n_substeps=20,
             gripper_extra_height=0.2, target_in_the_air=False, target_offset=0.0,
             obj_range=0.15, target_range=0.15, distance_threshold=0.1,
-            initial_qpos=initial_qpos, reward_type=reward_type, fix_goal=fix_goal)
+            initial_qpos=initial_qpos, reward_type=reward_type, fix_goal=fix_goal, n_object=n_object)
         EzPickle.__init__(self)
 
         # Save object related infos
         self.X = []  # x coordinates
         self.Y = []  # y coordinates
         # shapes and colors
-        if self.n_object == 2:
+        if self.n_object == 1:  # task degregate to pick and place
+            self.color = np.array([2])
+            self.shape = np.array([False])
+        elif self.n_object == 2:
             self.color = np.array([2, 0])  # red, blue
             self.shape = np.array([False, True])  # True for sphere, False: box
         elif self.n_object == 3:
@@ -89,41 +94,43 @@ class Rearrangement(fetch_env.FetchEnv, EzPickle):
         return True
 
     def _get_obs(self):
-        # gripper state
-        grip_pos = self.sim.data.get_site_xpos('robot0:grip')
         dt = self.dt
+        # gripper position state
+        grip_pos = self.sim.data.get_site_xpos('robot0:grip')
         grip_velp = self.sim.data.get_site_xvelp('robot0:grip') * dt
 
-        # robot state
+        # robot arm state
         robot_qpos, robot_qvel = utils.robot_get_obs(self.sim)
 
-        # object state
-        object_pos, object_rot, object_velp, object_velr = [], [], [], []
-        if self.has_object:
-            for i in range(self.n_object):
-                obj_name = 'object{}'.format(i)
-                object_pos.append(self.sim.data.get_site_xpos(obj_name))
-                # rotations
-                object_rot.append(
-                    rotations.mat2euler(self.sim.data.get_site_xmat(obj_name)))
-                # velocities
-                object_velp.append(self.sim.data.get_site_xvelp(obj_name) * dt)
-                object_velr.append(self.sim.data.get_site_xvelr(obj_name) * dt)
-            object_pos = np.array(object_pos)
-            object_rot = np.array(object_rot)
-            object_velp = np.array(object_velp)
-            object_velr = np.array(object_velr)
-        else:
-            object_pos = object_rot = object_velp = object_velr = np.zeros(0)
+        # gripper joint state
+        grip_state = robot_qpos[-2:]
+        grip_vel = robot_qvel[-2:] * dt
 
-        gripper_state = robot_qpos[-2:]
-        gripper_vel = robot_qvel[-2:] * dt
+        # object state for each object
+        object_pos, object_rot, object_velp, object_velr, grip_rel_pos = [], [], [], [], []
+        for i in range(self.n_object):
+            obj_name = 'object{}'.format(i)
+            object_pos.append(self.sim.data.get_site_xpos(obj_name))
+            # rotations
+            object_rot.append(
+                rotations.mat2euler(self.sim.data.get_site_xmat(obj_name)))
+            # velocities
+            object_velp.append(self.sim.data.get_site_xvelp(obj_name) * dt - grip_velp)
+            object_velr.append(self.sim.data.get_site_xvelr(obj_name) * dt)
+            # relative state between gripper and object
+            grip_rel_pos.append(self.sim.data.get_site_xpos(obj_name) - grip_pos)
+
+        object_pos = np.array(object_pos)
+        object_rot = np.array(object_rot)
+        object_velp = np.array(object_velp)
+        object_velr = np.array(object_velr)
+        grip_rel_pos = np.array(grip_rel_pos)
 
         achieved_goal = np.squeeze(object_pos.flatten())
         # 46D
         obs = np.concatenate([
-            grip_pos, object_pos.ravel(), gripper_state, object_rot.ravel(),
-            object_velp.ravel(), object_velr.ravel(), grip_velp, gripper_vel
+            grip_pos, object_pos.ravel(), grip_rel_pos.ravel(), grip_state, object_rot.ravel(),
+            object_velp.ravel(), object_velr.ravel(), grip_velp, grip_vel
         ])
 
         return {
@@ -154,10 +161,7 @@ class Rearrangement(fetch_env.FetchEnv, EzPickle):
             object_qpos = self.sim.data.get_joint_qpos(object_joint_name)
             assert object_qpos.shape == (7,)
             object_qpos[:2] = object_xpos
-            object_xpos = object_qpos[:3]
-            # TODO: should we generate the goal image here
-            # self.sim.data.set_joint_qpos(object_joint_name, object_qpos)
-            goal_pos.append(object_xpos)
+            goal_pos.append(object_qpos[:3])
 
         goal_pos = np.array(goal_pos)
         return np.squeeze(goal_pos.flatten())
@@ -172,7 +176,6 @@ class Rearrangement(fetch_env.FetchEnv, EzPickle):
         self.viewer.cam.azimuth = 132.
         self.viewer.cam.elevation = -15.
 
-    # TODO redefine _render_callback for multi-objects env
     def _render_callback(self):
         # visualize all targets
         if self.vis_targets:
