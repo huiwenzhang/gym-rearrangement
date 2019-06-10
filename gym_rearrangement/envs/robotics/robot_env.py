@@ -54,11 +54,12 @@ class RobotEnv(GoalEnv):
         self.seed()
         self._env_setup(initial_qpos=initial_qpos)
         self.initial_state = copy.deepcopy(self.sim.get_state())
-        self.goal = self._sample_goal()  # target state
+        self.goal = None  # initialize goal state
+
+        obs = self.reset() # get initial setups for goals and objects
 
         # specify observation space and action space, necessary for goal env
         # for goal env, observation space is a gym.space.Dict instance
-        obs = self._get_obs()
         self.action_space = spaces.Box(-1., 1., shape=(n_actions,), dtype='float32')
         self.observation_space = spaces.Dict(dict(
             desired_goal=spaces.Box(-np.inf, np.inf, shape=obs['achieved_goal'].shape,
@@ -178,7 +179,6 @@ class RobotEnv(GoalEnv):
         return np.linalg.norm(goal_a - goal_b, axis=-1)
 
     # Extension methods
-    # ----------------------------
 
     def _reset_sim(self):
         """Resets a simulation and indicates whether or not it was successful.

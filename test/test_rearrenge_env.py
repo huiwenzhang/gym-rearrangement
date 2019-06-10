@@ -12,7 +12,7 @@ import gym
 import gym_rearrangement
 
 # Initialize the "maze" environment
-env = gym.make("FetchRearrangement4Dense-v1")
+env = gym.make("FetchRearrangement1Dense-v1")
 
 obs = env.reset()
 for _ in range(1000):

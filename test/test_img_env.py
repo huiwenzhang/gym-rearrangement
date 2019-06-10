@@ -16,7 +16,7 @@ from gym_rearrangement.core.image_env import ImageEnv
 
 # from gym_rearrangement.envs.robotics.cameras_setup import *
 
-img_path = '/tmp/rearrange/'
+img_path = '/tmp/fetch/'
 os.makedirs(img_path, exist_ok=True)
 
 # Initialize the "rearrangement" environment

@@ -12,6 +12,7 @@ from gym_rearrangement.envs.robotics import fetch_env, utils, rotations
 N_GRID = 3
 TABLE_SIZE = 0.5 * 100  # width of the table, unit: cm
 TABLE_CORNER = [105, 50]  # right bottom corner, robot view
+GRID_SIZE = int(TABLE_SIZE * 0.9 / N_GRID)
 
 
 class Rearrangement(fetch_env.FetchEnv, EzPickle):
@@ -30,7 +31,8 @@ class Rearrangement(fetch_env.FetchEnv, EzPickle):
             self, model_xml_path, has_object=True, block_gripper=False, n_substeps=20,
             gripper_extra_height=0.2, target_in_the_air=False, target_offset=0.0,
             obj_range=0.15, target_range=0.15, distance_threshold=0.1,
-            initial_qpos=initial_qpos, reward_type=reward_type, fix_goal=fix_goal, n_object=n_object)
+            initial_qpos=initial_qpos, reward_type=reward_type, fix_goal=fix_goal,
+            n_object=n_object)
         EzPickle.__init__(self)
 
         # Save object related infos
@@ -56,18 +58,18 @@ class Rearrangement(fetch_env.FetchEnv, EzPickle):
     def _reset_sim(self):
         self.sim.set_state(self.initial_state)
 
-        # Randomize the goal state
-        if not self.fix_goal:
-            self.goal = self._sample_goal()
-
         # Randomize start position of all objects.
-        grid_size = int(TABLE_SIZE * 0.9 / N_GRID)
-
         idx_coor = np.arange(N_GRID * N_GRID)
         np.random.shuffle(idx_coor)
 
         self.X = []
         self.Y = []
+        obj_pos_id = idx_coor[:self.n_object]  # grid id taken by objects
+
+        # Randomize the goal state
+        # TODO: why we cannot put this after the following code?
+        if not self.fix_goal:
+            self.goal = self._sample_goal(idx_coor, obj_pos_id)
 
         for i in range(self.n_object):
             # block index
@@ -77,7 +79,7 @@ class Rearrangement(fetch_env.FetchEnv, EzPickle):
             # square of x, y is used for remove distance ambiguity
             # (means one object may have serval ojbects with the same distance)
             object_xpos = np.array(
-                [(x + 0.5) * grid_size + x ** 2, (y + 0.5) * grid_size + y ** 2]) + np.array(
+                [(x + 0.5) * GRID_SIZE + x ** 2, (y + 0.5) * GRID_SIZE + y ** 2]) + np.array(
                 TABLE_CORNER)
             object_xpos = object_xpos / 100.
 
@@ -139,11 +141,21 @@ class Rearrangement(fetch_env.FetchEnv, EzPickle):
             'desired_goal': self.goal.copy(),
         }
 
-    def _sample_goal(self):
-        # Randomize start position of all objects.
-        grid_size = int(TABLE_SIZE * 0.9 / N_GRID)
+    def _sample_goal(self, ids, taken_ids=None):
+        """
+        Sample goal positons for each objects
+        :param taken_ids: the current coordinates id taken by each obj
+        :return: goal positions
+        """
+        idx_coor = ids.tolist()
 
-        idx_coor = np.arange(N_GRID * N_GRID)
+        # Remove the taken ids from the idx_coor, so that the sampled goal states will not overlapped
+        # the current obj ids. However if the No. of obj is bigger than 4, we don't have enough spaces
+        # so overlap must be happen
+        if taken_ids is not None and len(taken_ids) < 5:
+            for id in taken_ids:
+                idx_coor.remove(id)
+
         np.random.shuffle(idx_coor)
 
         goal_pos = []
@@ -153,7 +165,7 @@ class Rearrangement(fetch_env.FetchEnv, EzPickle):
             y = (N_GRID - np.floor(idx_coor[i] / N_GRID) - 1).astype(np.uint8)
             # grid coordinates
             object_xpos = np.array(
-                [(x + 0.5) * grid_size + x ** 2, (y + 0.5) * grid_size + y ** 2]) + np.array(
+                [(x + 0.5) * GRID_SIZE + x ** 2, (y + 0.5) * GRID_SIZE + y ** 2]) + np.array(
                 TABLE_CORNER)
             object_xpos = object_xpos / 100.
 
