@@ -8,6 +8,7 @@ import h5py
 import imageio
 from PIL import Image
 from gym.spaces import Box, Dict
+
 from gym_rearrangement.core.goal_env import GoalEnv
 from gym_rearrangement.core.wrapper_env import ProxyEnv
 from vqa_utils import *
@@ -68,6 +69,11 @@ class ImageEnv(ProxyEnv, GoalEnv):
         self.channels = (1,) if grayscale else (3,)  # gray or RGB
         self.img_shape = (self.imsize, self.imsize)
 
+        self.reward_type = reward_type
+        self.threshold = threshold
+        self.num_shape = self.wrapped_env.n_object
+        self.data_cnt = 0  # number of samples when collection dataset
+
         # Init camera
         if init_camera is not None:
             # the initialize_camera func is defined in robot_env class
@@ -82,17 +88,20 @@ class ImageEnv(ProxyEnv, GoalEnv):
             img_space = Box(low=0, high=255, shape=self.img_shape + self.channels,
                             dtype=np.uint8)
 
+        # questions and answer space  for each image
+        q_space = Box(low=0, high=1, shape=(self.num_shape * NUM_Q, NUM_COLOR + NUM_Q),
+                      dtype=np.bool)
+        a_space = Box(low=0, high=1, shape=(self.num_shape * NUM_Q, NUM_COLOR + 4), dtype=np.bool)
+
         # Extended observation space
         spaces = self.wrapped_env.observation_space.spaces.copy()
         spaces['img_obs'] = img_space
         spaces['img_desired_goal'] = img_space
         spaces['img_achieved_goal'] = img_space
+        spaces['question'] = q_space
+        spaces['answer'] = a_space
         self.observation_space = Dict(spaces)
         self.action_space = self.wrapped_env.action_space
-        self.reward_type = reward_type
-        self.threshold = threshold
-        self.num_shape = self.wrapped_env.n_object
-        self.data_cnt = 0  # number of samples when collection dataset
 
         self.save_img = save_img or collect_data  # save image when collect data
         if save_img_path is None:
@@ -133,9 +142,14 @@ class ImageEnv(ProxyEnv, GoalEnv):
 
     def _update_obs(self, obs):
         img_obs = self._get_img()
+        _, R = self.generate_image(img_obs)
+        Q = self.generate_questions(R)
+        A = self.generate_answer(R)
         obs['img_obs'] = img_obs
         obs['img_desired_goal'] = self._img_goal
         obs['img_achieved_goal'] = img_obs
+        obs['question'] = Q
+        obs['answer'] = A
 
         # state observation
         return obs
@@ -213,66 +227,65 @@ class ImageEnv(ProxyEnv, GoalEnv):
         assert image.dtype != np.uint8
         return (image * 255.).astype(np.uint8)
 
+    # vqa methods
+    def generate_image(self, img):
+        img = self.recover_img(img)
+        rep = Representation(np.stack(self.wrapped_env.X).astype(np.float),
+                             np.stack(self.wrapped_env.Y).astype(np.float),
+                             self.wrapped_env.color, self.wrapped_env.shape)
+        return np.array(img), rep
+
+    def generate_questions(self, rep):
+        # Generate questions: [# of shape * # of Q, # of color + # of Q]
+        # Ask 5 questions for each type of color objects
+        # Each row is a Q with the first NUM_COLOR represnts the color and the last 5 column stands for Q ID
+        Q = np.zeros((self.num_shape * NUM_Q, NUM_COLOR + NUM_Q), dtype=np.bool)  # object - q
+        for i in range(self.num_shape):
+            v = np.zeros(NUM_COLOR)
+            v[rep.color[i]] = True
+            Q[i * NUM_Q:(i + 1) * NUM_Q, :NUM_COLOR] = np.tile(v, (NUM_Q, 1))
+            Q[i * NUM_Q:(i + 1) * NUM_Q, NUM_COLOR:] = np.diag(np.ones(NUM_Q))
+        return Q
+
+    def generate_answer(self, rep):
+        # Generate answers: [# of shape * # of Q, # of color + 4]
+        # # of color + 4: [color 1, color 2, ... , circle, rectangle, yes, no]
+        A = np.zeros((self.num_shape * NUM_Q, NUM_COLOR + 4), dtype=np.bool)
+        for i in range(self.num_shape):
+            # Q1: circle or rectangle?
+            if rep.shape[i]:
+                A[i * NUM_Q, NUM_COLOR] = True
+            else:
+                A[i * NUM_Q, NUM_COLOR + 1] = True
+
+            # Q2: bottom?
+            if rep.x[i] > (TABLE_CENTER[0] + 0.1):
+                A[i * NUM_Q + 1, NUM_COLOR + 2] = True
+            else:
+                A[i * NUM_Q + 1, NUM_COLOR + 3] = True
+
+            # Q3: left?
+            if rep.y[i] > (TABLE_CENTER[1]):
+                A[i * NUM_Q + 2, NUM_COLOR + 2] = True
+            else:
+                A[i * NUM_Q + 2, NUM_COLOR + 3] = True
+
+            distance = 1.1 * (rep.y - rep.y[i]) ** 2 + (rep.x - rep.x[i]) ** 2
+            idx = distance.argsort()
+            # Q4: the color of the nearest object except for itself
+            min_idx = idx[1]
+            A[i * NUM_Q + 3, rep.color[min_idx]] = True
+            # Q5: the color of the farthest object
+            max_idx = idx[-1]
+            A[i * NUM_Q + 4, rep.color[max_idx]] = True
+        return A
+
     # Generate vqa dataset
     def generate_vqa_data(self, obs):
-
-        def generate_image():
-            img = obs['img_obs']
-            img = self.recover_img(img)
-            rep = Representation(np.stack(self.wrapped_env.X).astype(np.float),
-                                 np.stack(self.wrapped_env.Y).astype(np.float),
-                                 self.wrapped_env.color, self.wrapped_env.shape)
-            # save image outside the env
-            return np.array(img), rep
-
-        def generate_questions(rep):
-            # Generate questions: [# of shape * # of Q, # of color + # of Q]
-            # Ask 5 questions for each type of color objects
-            # Each row is a Q with the first NUM_COLOR represnts the color and the last 5 column stands for Q ID
-            Q = np.zeros((self.num_shape * NUM_Q, NUM_COLOR + NUM_Q), dtype=np.bool)  # object - q
-            for i in range(self.num_shape):
-                v = np.zeros(NUM_COLOR)
-                v[rep.color[i]] = True
-                Q[i * NUM_Q:(i + 1) * NUM_Q, :NUM_COLOR] = np.tile(v, (NUM_Q, 1))
-                Q[i * NUM_Q:(i + 1) * NUM_Q, NUM_COLOR:] = np.diag(np.ones(NUM_Q))
-            return Q
-
-        def generate_answer(rep):
-            # Generate answers: [# of shape * # of Q, # of color + 4]
-            # # of color + 4: [color 1, color 2, ... , circle, rectangle, yes, no]
-            A = np.zeros((self.num_shape * NUM_Q, NUM_COLOR + 4), dtype=np.bool)
-            for i in range(self.num_shape):
-                # Q1: circle or rectangle?
-                if rep.shape[i]:
-                    A[i * NUM_Q, NUM_COLOR] = True
-                else:
-                    A[i * NUM_Q, NUM_COLOR + 1] = True
-
-                # Q2: bottom?
-                if rep.x[i] > (TABLE_CENTER[0] + 0.1):
-                    A[i * NUM_Q + 1, NUM_COLOR + 2] = True
-                else:
-                    A[i * NUM_Q + 1, NUM_COLOR + 3] = True
-
-                # Q3: left?
-                if rep.y[i] > (TABLE_CENTER[1]):
-                    A[i * NUM_Q + 2, NUM_COLOR + 2] = True
-                else:
-                    A[i * NUM_Q + 2, NUM_COLOR + 3] = True
-
-                distance = 1.1 * (rep.y - rep.y[i]) ** 2 + (rep.x - rep.x[i]) ** 2
-                idx = distance.argsort()
-                # Q4: the color of the nearest object except for itself
-                min_idx = idx[1]
-                A[i * NUM_Q + 3, rep.color[min_idx]] = True
-                # Q5: the color of the farthest object
-                max_idx = idx[-1]
-                A[i * NUM_Q + 4, rep.color[max_idx]] = True
-            return A
-
-        I, R = generate_image()
-        A = generate_answer(R)
-        Q = generate_questions(R)
+        img = obs['img_obs']
+        I, R = self.generate_image(img)
+        A = self.generate_answer(R)
+        Q = self.generate_questions(R)
         for j in range(self.num_shape * NUM_Q):
             id = '{}'.format(self.data_cnt)
             self.id_file.write(id + '\n')

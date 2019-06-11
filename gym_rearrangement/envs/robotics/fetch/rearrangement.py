@@ -30,9 +30,9 @@ class Rearrangement(fetch_env.FetchEnv, EzPickle):
         fetch_env.FetchEnv.__init__(
             self, model_xml_path, has_object=True, block_gripper=False, n_substeps=20,
             gripper_extra_height=0.2, target_in_the_air=False, target_offset=0.0,
-            obj_range=0.15, target_range=0.15, distance_threshold=0.1,
-            initial_qpos=initial_qpos, reward_type=reward_type, fix_goal=fix_goal,
-            n_object=n_object)
+            obj_range=0.15, target_range=0.15, distance_threshold=0.05,
+            initial_qpos=initial_qpos, reward_type=reward_type, fix_goal=fix_goal
+        )
         EzPickle.__init__(self)
 
         # Save object related infos

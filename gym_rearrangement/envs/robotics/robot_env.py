@@ -17,17 +17,18 @@ except ImportError as e:
 
 DEFAULT_SIZE = 500
 
-# BOX_RANGE_X = Interval(1.0, 1.6)
-# BOX_RANGE_Y = Interval(0.4, 1.1)
-# BOX_RANGE_Z = Interval(0.3, 1)
+BOX_RANGE_X = Interval(1.0, 1.6)
+BOX_RANGE_Y = Interval(0.4, 1.1)
+BOX_RANGE_Z = Interval(0.35, 0.6)
 
-BOX_RANGE_X = Interval(0.5, 2.0)
-BOX_RANGE_Y = Interval(0., 1.5)
-BOX_RANGE_Z = Interval(0.3, 1.5)
+
+# BOX_RANGE_X = Interval(0.5, 2.0)
+# BOX_RANGE_Y = Interval(0., 1.5)
+# BOX_RANGE_Z = Interval(0.3, 1.5)
 
 
 class RobotEnv(GoalEnv):
-    def __init__(self, model_path, initial_qpos, n_actions, n_substeps, n_object):
+    def __init__(self, model_path, initial_qpos, n_actions, n_substeps):
         print("test in RobotEnv")
         if model_path.startswith('/'):
             fullpath = model_path
@@ -44,7 +45,6 @@ class RobotEnv(GoalEnv):
         self.data = self.sim.data
         self._viewers = {}
         self._step_cnt = 0  # number of steps run so far
-        self.n_object = n_object  # No. of objects in the env
 
         self.metadata = {
             'render.modes': ['human', 'rgb_array'],
@@ -56,7 +56,7 @@ class RobotEnv(GoalEnv):
         self.initial_state = copy.deepcopy(self.sim.get_state())
         self.goal = None  # initialize goal state
 
-        obs = self.reset() # get initial setups for goals and objects
+        obs = self.reset()  # get initial setups for goals and objects
 
         # specify observation space and action space, necessary for goal env
         # for goal env, observation space is a gym.space.Dict instance
@@ -99,7 +99,7 @@ class RobotEnv(GoalEnv):
         else:
             print('Early terminate for out of range actions')
             done = True
-            reward = -100  # penalty to void early terminate policy
+            reward = -200  # penalty to void early terminate policy
 
         if info['is_success']:
             print('Success')
@@ -126,31 +126,6 @@ class RobotEnv(GoalEnv):
             self.viewer = None
             self._viewers = {}
 
-    def compute_rewards(self, obs):
-        # Compute distance between goal and the achieved goal.
-        # Maybe the distance between gripper and object should be included
-        # So it is two stage task: approximate the object, pick it to the goal
-        # rewards = (grip_pos - object_pos)**2 + (target_pos - ojbect_pos)**2
-        achieved_goal = obs['achieved_goal']  # achieved goal is the current pos of object
-        goal = obs['desired_goal']
-        grip_pos = obs['observation'][:3]
-        # print('achieved goal: {}, goal: {}, gripper pos: {}'.format(achieved_goal, goal, grip_pos))
-        d1 = self.goal_distance(achieved_goal, goal)
-        if goal.shape[0] <= 3:
-            d2 = self.goal_distance(grip_pos, achieved_goal)
-        else:  # more objects
-            # TODO: distance between each object and gripper
-            d2 = 0
-        # if goal is reached (threshhold: 5cm), there is no need to reach the object
-        d2 = 0 if d1 <= self.distance_threshold else d2
-        d = 1.2 * d1 + d2  # give more weights for reaching stage
-
-        # sparse reward: either 0 or 1 reward
-        if self.reward_type == 'sparse':
-            return -(d1 > self.distance_threshold).astype(np.float32)
-        else:
-            return -d
-
     def render(self, mode='human', width=DEFAULT_SIZE, height=DEFAULT_SIZE):
         self._render_callback()
         if mode == 'rgb_array':
@@ -173,11 +148,6 @@ class RobotEnv(GoalEnv):
             self._viewers[mode] = self.viewer
         return self.viewer
 
-    @staticmethod
-    def goal_distance(goal_a, goal_b):
-        assert goal_a.shape == goal_b.shape
-        return np.linalg.norm(goal_a - goal_b, axis=-1)
-
     # Extension methods
 
     def _reset_sim(self):
@@ -194,6 +164,11 @@ class RobotEnv(GoalEnv):
         """Returns the observation.
         """
         raise NotImplementedError()
+
+    # def compute_rewards(self, obs):
+    #     """compute rewards.
+    #     """
+    #     raise NotImplementedError()
 
     def _set_action(self, action):
         """Applies the given action to the simulation.

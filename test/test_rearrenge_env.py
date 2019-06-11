@@ -15,6 +15,7 @@ import gym_rearrangement
 env = gym.make("FetchRearrangement1Dense-v1")
 
 obs = env.reset()
+print(obs['observation'].shape)
 for _ in range(1000):
     action = env.action_space.sample()
     obs, rew, done, info = env.step(action)

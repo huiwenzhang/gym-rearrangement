@@ -69,7 +69,7 @@ for reward_type in ['sparse', 'dense']:
         id='FetchPickAndPlace{}-v2'.format(suffix),
         entry_point='gym_rearrangement.envs:FetchPickAndPlaceEnv',
         kwargs=kwargs,
-        max_episode_steps=200,
+        max_episode_steps=150,
     )
 
     # Fetch rearrangement
