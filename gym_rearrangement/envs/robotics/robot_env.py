@@ -4,9 +4,8 @@ import os
 import numpy as np
 from gym import error, spaces
 from gym.utils import seeding
-from interval import Interval
-
 from gym_rearrangement.core.goal_env import GoalEnv
+from interval import Interval
 
 try:
     import mujoco_py
@@ -28,7 +27,7 @@ BOX_RANGE_Z = Interval(0.35, 0.6)
 
 
 class RobotEnv(GoalEnv):
-    def __init__(self, model_path, initial_qpos, n_actions, n_substeps):
+    def __init__(self, model_path, initial_qpos, n_actions, n_substeps, n_obj, distance_threshold):
         print("test in RobotEnv")
         if model_path.startswith('/'):
             fullpath = model_path
@@ -45,6 +44,8 @@ class RobotEnv(GoalEnv):
         self.data = self.sim.data
         self._viewers = {}
         self._step_cnt = 0  # number of steps run so far
+        self.n_obj = n_obj  # number of objects
+        self.distance_threshold = distance_threshold
 
         self.metadata = {
             'render.modes': ['human', 'rgb_array'],
@@ -137,6 +138,39 @@ class RobotEnv(GoalEnv):
         elif mode == 'human':
             self._get_viewer(mode).render()
 
+    def compute_rewards(self, obs):
+        # Compute distance between goal and the achieved goal.
+        # Maybe the distance between gripper and object should be included
+        # So it is a two stage task: approximate the object, pick it to the goal
+        # rewards = (grip_pos - object_pos)**2 + (target_pos - ojbect_pos)**2
+        achieved_goal = obs['achieved_goal']  # achieved goal is the current pos of object
+        goal = obs['desired_goal']
+        assert len(goal) == len(achieved_goal) == 3 * self.n_obj
+        grip_pos = obs['observation'][:3]
+        # print('achieved goal: {}, goal: {}, gripper pos: {}'.format(achieved_goal, goal, grip_pos))
+        if self.n_obj < 2:
+            d1 = self.goal_distance(achieved_goal, goal)
+            d2 = self.goal_distance(grip_pos, achieved_goal)
+        else:  # more objects
+            d1, d2 = [], []
+            for i in range(self.n_obj):
+                d1.append(self.goal_distance(achieved_goal[3 * i: 3 * (i + 1)],
+                                             goal[3 * i: 3 * (i + 1)]))
+                d2.append(self.goal_distance(grip_pos, achieved_goal[3 * i:3 * (i + 1)]))
+                # if goal is reached (threshold: 5cm), there is no need to reach the object
+                d2[i] = 0 if d1[i] <= self.distance_threshold else d2[i]
+            d1 = sum(d1)
+            d2 = sum(d2)
+        # TODO: should we use two-stage rewards
+        w1, w2 = self.linear_schedule()
+        d = w1 * d1 + w2 * d2
+
+        # sparse reward: either 0 or 1 reward
+        if self.reward_type == 'sparse':
+            return -(d1 > self.distance_threshold).astype(np.float32)
+        else:
+            return -d
+
     def _get_viewer(self, mode):
         self.viewer = self._viewers.get(mode)
         if self.viewer is None:
@@ -228,3 +262,21 @@ class RobotEnv(GoalEnv):
         viewer = mujoco_py.MjRenderContextOffscreen(self.sim)
         init_fn(viewer.cam)
         self.sim.add_render_context(viewer)
+
+    @staticmethod
+    def goal_distance(goal_a, goal_b):
+        assert goal_a.shape == goal_b.shape
+        return np.linalg.norm(goal_a - goal_b, axis=-1)
+
+    def linear_schedule(self):
+        """
+        Linear weights schedule for reaching and placing.
+
+        :return: (function)
+        """
+        decay_total_steps = 3e5
+        progress = float(self._step_cnt / decay_total_steps)
+        reach_weight = 1 - progress if progress < 0.6 else 0.4
+        place_weight = progress if progress < 0.6 else 0.6
+
+        return place_weight, reach_weight

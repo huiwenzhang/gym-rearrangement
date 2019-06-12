@@ -1,4 +1,5 @@
 import numpy as np
+
 from gym_rearrangement.envs.robotics import rotations, robot_env, utils
 
 
@@ -11,7 +12,7 @@ class FetchEnv(robot_env.RobotEnv):
     def __init__(
             self, model_path, n_substeps, gripper_extra_height, block_gripper,
             has_object, target_in_the_air, target_offset, obj_range, target_range,
-            distance_threshold, initial_qpos, reward_type, fix_goal
+            distance_threshold, initial_qpos, reward_type, fix_goal, n_obj
     ):
         """Initializes a new Fetch environment.
 
@@ -43,7 +44,7 @@ class FetchEnv(robot_env.RobotEnv):
 
         super(FetchEnv, self).__init__(
             model_path=model_path, n_substeps=n_substeps, n_actions=4,
-            initial_qpos=initial_qpos)
+            initial_qpos=initial_qpos, n_obj=n_obj, distance_threshold=distance_threshold)
 
     # RobotEnv methods
     # ----------------------------
@@ -107,33 +108,6 @@ class FetchEnv(robot_env.RobotEnv):
             'achieved_goal': achieved_goal.copy(),
             'desired_goal': self.goal.copy(),
         }
-
-    def compute_rewards(self, obs):
-        # Compute distance between goal and the achieved goal.
-        # Maybe the distance between gripper and object should be included
-        # So it is a two stage task: approximate the object, pick it to the goal
-        # rewards = (grip_pos - object_pos)**2 + (target_pos - ojbect_pos)**2
-        achieved_goal = obs['achieved_goal']  # achieved goal is the current pos of object
-        goal = obs['desired_goal']
-        grip_pos = obs['observation'][:3]
-        # print('achieved goal: {}, goal: {}, gripper pos: {}'.format(achieved_goal, goal, grip_pos))
-        d1 = self.goal_distance(achieved_goal, goal)
-        if goal.shape[0] <= 3:
-            d2 = self.goal_distance(grip_pos, achieved_goal)
-        else:  # more objects
-            # TODO: distance between each object and gripper
-            d2 = 0
-        # if goal is reached (threshhold: 5cm), there is no need to reach the object
-        d2 = 0 if d1 <= self.distance_threshold else d2
-        # TODO: should we use two-stage rewards
-        d2 = 0
-        d = d1 + 0.35 * d2  # put more emphasis on the final stage
-
-        # sparse reward: either 0 or 1 reward
-        if self.reward_type == 'sparse':
-            return -(d1 > self.distance_threshold).astype(np.float32)
-        else:
-            return -d
 
     def _viewer_setup(self):
         body_id = self.sim.model.body_name2id('table0')
@@ -211,8 +185,3 @@ class FetchEnv(robot_env.RobotEnv):
 
     def render(self, mode='human', width=500, height=500):
         return super(FetchEnv, self).render(mode, width, height)
-
-    @staticmethod
-    def goal_distance(goal_a, goal_b):
-        assert goal_a.shape == goal_b.shape
-        return np.linalg.norm(goal_a - goal_b, axis=-1)
