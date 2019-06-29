@@ -273,7 +273,10 @@ class ImageEnv(ProxyEnv, GoalEnv):
             distance = 1.1 * (rep.y - rep.y[i]) ** 2 + (rep.x - rep.x[i]) ** 2
             idx = distance.argsort()
             # Q4: the color of the nearest object except for itself
-            min_idx = idx[1]
+            if self.num_shape == 1:
+                min_idx = idx[0]
+            else:
+                min_idx = idx[1] # the cloest is not itself if more than one blocks are there
             A[i * NUM_Q + 3, rep.color[min_idx]] = True
             # Q5: the color of the farthest object
             max_idx = idx[-1]
@@ -286,6 +289,7 @@ class ImageEnv(ProxyEnv, GoalEnv):
         I, R = self.generate_image(img)
         A = self.generate_answer(R)
         Q = self.generate_questions(R)
+        print('Shape of img:{}, Q:{}, A:{}'.format(img.shape, Q.shape, A.shape))
         for j in range(self.num_shape * NUM_Q):
             id = '{}'.format(self.data_cnt)
             self.id_file.write(id + '\n')

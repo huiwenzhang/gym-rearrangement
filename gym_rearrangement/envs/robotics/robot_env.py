@@ -18,12 +18,14 @@ DEFAULT_SIZE = 500
 
 BOX_RANGE_X = Interval(1.0, 1.6)
 BOX_RANGE_Y = Interval(0.4, 1.1)
-BOX_RANGE_Z = Interval(0.35, 0.6)
+BOX_RANGE_Z = Interval(0.35, 0.7)
 
 
-# BOX_RANGE_X = Interval(0.5, 2.0)
-# BOX_RANGE_Y = Interval(0., 1.5)
-# BOX_RANGE_Z = Interval(0.3, 1.5)
+
+# wider space for state representation learning
+# BOX_RANGE_X = Interval(0.7, 1.6)
+# BOX_RANGE_Y = Interval(0.2, 1.3)
+# BOX_RANGE_Z = Interval(0.35, 0.7)
 
 
 class RobotEnv(GoalEnv):
@@ -159,17 +161,15 @@ class RobotEnv(GoalEnv):
                 d2.append(self.goal_distance(grip_pos, achieved_goal[3 * i:3 * (i + 1)]))
                 # if goal is reached (threshold: 5cm), there is no need to reach the object
                 d2[i] = 0 if d1[i] <= self.distance_threshold else d2[i]
-            d1 = sum(d1)
-            d2 = sum(d2)
+
         # TODO: should we use two-stage rewards
-        w1, w2 = self.linear_schedule()
-        d = w1 * d1 + w2 * d2
+        d = d1
 
         # sparse reward: either 0 or 1 reward
         if self.reward_type == 'sparse':
-            return -(d1 > self.distance_threshold).astype(np.float32)
+            return sum((np.array(d1) < self.distance_threshold).astype(np.float32))
         else:
-            return -d
+            return -d if isinstance(d, float) else sum(d)
 
     def _get_viewer(self, mode):
         self.viewer = self._viewers.get(mode)
