@@ -4,8 +4,9 @@ import os
 import numpy as np
 from gym import error, spaces
 from gym.utils import seeding
-from gym_rearrangement.core.goal_env import GoalEnv
 from interval import Interval
+
+from gym_rearrangement.core.goal_env import GoalEnv
 
 try:
     import mujoco_py
@@ -15,17 +16,11 @@ except ImportError as e:
         "https://github.com/openai/mujoco-py/.)".format(e))
 
 DEFAULT_SIZE = 500
+MAX_STEPS = 400
 
 BOX_RANGE_X = Interval(1.0, 1.6)
-BOX_RANGE_Y = Interval(0.4, 1.1)
+BOX_RANGE_Y = Interval(0.3, 1.2)
 BOX_RANGE_Z = Interval(0.35, 0.7)
-
-
-
-# wider space for state representation learning
-# BOX_RANGE_X = Interval(0.7, 1.6)
-# BOX_RANGE_Y = Interval(0.2, 1.3)
-# BOX_RANGE_Z = Interval(0.35, 0.7)
 
 
 class RobotEnv(GoalEnv):
@@ -46,8 +41,13 @@ class RobotEnv(GoalEnv):
         self.data = self.sim.data
         self._viewers = {}
         self._step_cnt = 0  # number of steps run so far
+        self.episode_step_cnt = 0
         self.n_obj = n_obj  # number of objects
-        self.distance_threshold = distance_threshold
+        self.threshold = distance_threshold
+        self.use_reach_policy = True
+
+        self.obj_id = list(range(self.n_obj))  # which to pick first
+        np.random.shuffle(self.obj_id)
 
         self.metadata = {
             'render.modes': ['human', 'rgb_array'],
@@ -83,33 +83,102 @@ class RobotEnv(GoalEnv):
         self.np_random, seed = seeding.np_random(seed)
         return [seed]
 
-    def step(self, action):
-        action = np.clip(action, self.action_space.low, self.action_space.high)
-        self._set_action(action)
-        self.sim.step()
-        self._step_callback()
-        obs = self._get_obs()
-
-        info = {
-            'is_success': self._is_success(obs['achieved_goal'], self.goal),
-        }
-        reward = self.compute_rewards(obs)
-
-        # early termination if the gripper is out of range
-        grip_pos = obs['observation'][:3]  # grip pos then object pos ...
-        if grip_pos[0] in BOX_RANGE_X and grip_pos[1] in BOX_RANGE_Y and grip_pos[2] in BOX_RANGE_Z:
-            done = False
+    def _step_action(self, s, g, axis):
+        if abs(s - g) < self.threshold:
+            return 0
+        elif s < g:
+            return 0.5 if axis != 'z' else 0.25
         else:
-            print('Early terminate for out of range actions')
-            done = True
-            reward = -200  # penalty to void early terminate policy
+            return -0.5 if axis != 'z' else -0.25
 
-        if info['is_success']:
-            print('Success')
+    def reach_target_policy(self, grip_pos, target_pos):
+        """
+        Reach to the target to reduce exploration
+        :param grip_pos:
+        :param target_pos:
+        :return:
+        """
+        x = self._step_action(grip_pos[0], target_pos[0], 'x')
+        y = self._step_action(grip_pos[1], target_pos[1], 'y')
+        z = self._step_action(grip_pos[2], target_pos[2], 'z')
+        return [x, y, z]
+
+    def step(self, action):
+        # obj need to reach at current
+        done = False
+        if len(self.obj_id) > 0:
+            obj_id = self.obj_id[-1]
+
+            # gripper joint state, range 0, 0.05
+            grip_pos = self.sim.data.get_site_xpos('robot0:grip')
+
+            # block pos
+            object_pos = self.sim.data.get_site_xpos('object{}'.format(obj_id))
+            target_pos = self.goal[obj_id * 3: (obj_id + 1) * 3]
+            # print('Gripper block distance', abs(grip_pos - object_pos) * 100)
+
+            is_far = any(abs(grip_pos - object_pos) > self.threshold)
+            target_reached = self.goal_distance(object_pos, target_pos) < self.threshold
+
+            # pop up the reach target if it is reached
+            if target_reached:
+                print('Success with obj id: {}'.format(obj_id))
+                self.obj_id.pop()
+                action = np.array([0, 0, 1, 0.01])  # move up and place
+
+            if self.use_reach_policy and is_far and not target_reached:
+                print('Episode step: {}, Reaching object {} with reach target policy'.format(
+                    self.episode_step_cnt, obj_id))
+                pos_act = self.reach_target_policy(grip_pos, object_pos)
+                action[:3] = np.array(pos_act)
+
+            action = np.clip(action, self.action_space.low, self.action_space.high)
+            self._set_action(action)
+            self.sim.step()
+            self._step_callback()
+
+            info = {
+                'is_success': self._is_success(object_pos, target_pos),
+                'curr_obj_left': obj_id,
+            }
+            obs = self._get_obs()
+            reward = self.compute_rewards(obs)
+
+            # early termination if the gripper is out of range
+            if not self.check_in_range(grip_pos, object_pos):
+                done = True
+                reward = -50  # penalty to void early terminate policy
+
+        else:  # all task is over
             done = True
+            info = {'is_success': 'Success'}
+            obs = self._get_obs()
+            reward = self.compute_rewards(obs)
 
         self._step_cnt += 1  # Update step number
+        self.episode_step_cnt += 1
+
+        if self.episode_step_cnt >= MAX_STEPS:
+            print('Maximum episode steps reached')
+            done = True
+
         return obs, reward, done, info
+
+    def check_in_range(self, grip_pos, obj_pos):
+        """
+        Check if the gripper and block in range of desk, return false if not
+        :param gripper: gripper end effector pos
+        :param block: block pos
+        :return:
+        """
+        grip_in_range = grip_pos[0] in BOX_RANGE_X and grip_pos[1] in BOX_RANGE_Y and grip_pos[
+            2] in BOX_RANGE_Z
+        blk_in_range = obj_pos[2] >= 0.4
+        if not grip_in_range:
+            print('Gripper is out of range ...')
+        if not blk_in_range:
+            print('Object is out of range ...')
+        return grip_in_range and blk_in_range
 
     def reset(self):
         # Attempt to reset the simulator. Since we randomize initial conditions, it
@@ -117,6 +186,10 @@ class RobotEnv(GoalEnv):
         # Gimbel lock) or we may not achieve an initial condition (e.g. an object is within the hand).
         # In this case, we just keep randomizing until we eventually achieve a valid initial
         # configuration.
+        self.episode_step_cnt = 0
+        self.obj_id = list(range(self.n_obj))
+        np.random.shuffle(self.obj_id)
+
         did_reset_sim = False
         while not did_reset_sim:
             did_reset_sim = self._reset_sim()
@@ -160,16 +233,22 @@ class RobotEnv(GoalEnv):
                                              goal[3 * i: 3 * (i + 1)]))
                 d2.append(self.goal_distance(grip_pos, achieved_goal[3 * i:3 * (i + 1)]))
                 # if goal is reached (threshold: 5cm), there is no need to reach the object
-                d2[i] = 0 if d1[i] <= self.distance_threshold else d2[i]
+                d2[i] = 0 if d1[i] <= self.threshold else d2[i]
 
         # TODO: should we use two-stage rewards
         d = d1
 
         # sparse reward: either 0 or 1 reward
-        if self.reward_type == 'sparse':
-            return sum((np.array(d1) < self.distance_threshold).astype(np.float32))
+        if self.n_obj == 1:
+            if self.reward_type == 'sparse':
+                return (d < self.threshold).astype(np.float32)
+            else:
+                return -d
         else:
-            return -d if isinstance(d, float) else sum(d)
+            if self.reward_type == 'sparse':
+                return (np.array(d) < self.threshold).sum()
+            else:
+                return -(np.array(d).sum())
 
     def _get_viewer(self, mode):
         self.viewer = self._viewers.get(mode)

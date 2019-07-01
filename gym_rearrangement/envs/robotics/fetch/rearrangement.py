@@ -12,7 +12,7 @@ from gym_rearrangement.envs.robotics import fetch_env, utils, rotations
 N_GRID = 3
 TABLE_SIZE = 0.5 * 100  # width of the table, unit: cm
 TABLE_CORNER = [105, 50]  # right bottom corner, robot view
-GRID_SIZE = int(TABLE_SIZE * 0.9 / N_GRID)
+GRID_SIZE = int(TABLE_SIZE * 0.85 / N_GRID)
 
 
 class Rearrangement(fetch_env.FetchEnv, EzPickle):

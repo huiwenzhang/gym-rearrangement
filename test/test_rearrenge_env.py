@@ -12,11 +12,11 @@ import gym
 import gym_rearrangement
 
 # Initialize the "maze" environment
-env = gym.make("FetchRearrangement2-v1")
+env = gym.make("FetchRearrangement4-v1")
 
 obs = env.reset()
 print(obs['observation'].shape)
-for _ in range(1000):
+for _ in range(2000):
     action = env.action_space.sample()
     obs, rew, done, info = env.step(action)
     print(rew)
