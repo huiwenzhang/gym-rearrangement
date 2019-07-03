@@ -87,9 +87,9 @@ class RobotEnv(GoalEnv):
         if abs(s - g) < self.threshold:
             return 0
         elif s < g:
-            return 0.5 if axis != 'z' else 0.25
+            return 0.4 if axis != 'z' else 0.2
         else:
-            return -0.5 if axis != 'z' else -0.25
+            return -0.4 if axis != 'z' else -0.2
 
     def reach_target_policy(self, grip_pos, target_pos):
         """
@@ -127,8 +127,8 @@ class RobotEnv(GoalEnv):
                 action = np.array([0, 0, 1, 0.01])  # move up and place
 
             if self.use_reach_policy and is_far and not target_reached:
-                print('Episode step: {}, Reaching object {} with reach target policy'.format(
-                    self.episode_step_cnt, obj_id))
+                # print('Episode step: {}, Reaching object {} with reach target policy'.format(
+                #     self.episode_step_cnt, obj_id))
                 pos_act = self.reach_target_policy(grip_pos, object_pos)
                 action[:3] = np.array(pos_act)
 
@@ -138,7 +138,8 @@ class RobotEnv(GoalEnv):
             self._step_callback()
 
             info = {
-                'is_success': self._is_success(object_pos, target_pos),
+                'is_success': len(self.obj_id) == 0,
+                'is_curr_success': self._is_success(object_pos, target_pos),
                 'curr_obj_left': obj_id,
             }
             obs = self._get_obs()
@@ -150,17 +151,17 @@ class RobotEnv(GoalEnv):
                 reward = -50  # penalty to void early terminate policy
 
         else:  # all task is over
-            done = True
-            info = {'is_success': 'Success'}
+            info = {'is_success': True}
             obs = self._get_obs()
             reward = self.compute_rewards(obs)
 
         self._step_cnt += 1  # Update step number
         self.episode_step_cnt += 1
 
-        if self.episode_step_cnt >= MAX_STEPS:
-            print('Maximum episode steps reached')
-            done = True
+        # it wouldn't work here becasue the timelimit wrapper will set the default maximum steps
+        # if self.episode_step_cnt >= MAX_STEPS:
+        #     print('Maximum episode steps reached')
+        #     done = True
 
         return obs, reward, done, info
 

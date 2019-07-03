@@ -3,54 +3,6 @@ from gym.envs.registration import register
 
 logger = logging.getLogger(__name__)
 
-register(
-    id='maze-sample-3x3-v0',
-    entry_point='gym_rearrangement.envs:MazeEnvSample3x3',
-    max_episode_steps=1000,
-)
-
-register(
-    id='maze-random-3x3-v0',
-    entry_point='gym_rearrangement.envs:MazeEnvRandom3x3',
-    max_episode_steps=1000,
-    nondeterministic=True,
-)
-
-register(
-    id='maze-sample-100x100-v0',
-    entry_point='gym_rearrangement.envs:MazeEnvSample100x100',
-    max_episode_steps=1000000,
-)
-
-register(
-    id='maze-random-100x100-v0',
-    entry_point='gym_rearrangement.envs:MazeEnvRandom100x100',
-    max_episode_steps=1000000,
-    nondeterministic=True,
-)
-
-register(
-    id='maze-random-10x10-plus-v0',
-    entry_point='gym_rearrangement.envs:MazeEnvRandom10x10Plus',
-    max_episode_steps=1000000,
-    nondeterministic=True,
-)
-
-register(
-    id='maze-random-20x20-plus-v0',
-    entry_point='gym_rearrangement.envs:MazeEnvRandom20x20Plus',
-    max_episode_steps=1000000,
-    nondeterministic=True,
-)
-
-register(
-    id='maze-random-30x30-plus-v0',
-    entry_point='gym_rearrangement.envs:MazeEnvRandom30x30Plus',
-    max_episode_steps=1000000,
-    nondeterministic=True,
-)
-
-
 # ================robotics==========================
 
 def _merge(a, b):
@@ -82,5 +34,5 @@ for reward_type in ['sparse', 'dense']:
             id='FetchRearrangement{}{}-v1'.format(n_object, suffix),
             entry_point='gym_rearrangement.envs:Rearrangement',
             kwargs=kwargs,
-            max_episode_steps=200,
+            max_episode_steps=400,
         )

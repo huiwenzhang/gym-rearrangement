@@ -14,11 +14,6 @@ import os
 import gym_rearrangement
 from gym_rearrangement.core.image_env import ImageEnv
 
-# from gym_rearrangement.envs.robotics.cameras_setup import *
-
-img_path = '/tmp/fetch/'
-os.makedirs(img_path, exist_ok=True)
-
 # Initialize the "rearrangement" environment
 env = gym.make("FetchRearrangement1-v1")
 env = ImageEnv(env, reward_type='img_distance', save_img=True, img_size=128)
@@ -31,7 +26,7 @@ for i in range(500):
     # reconstruct image
     im = obs['img_obs']
     im = env.recover_img(im)
-    file_name = os.path.join(img_path, '{:0>3d}.png'.format(i))
+    file_name = os.path.join(env.img_path, '{:0>3d}.png'.format(i))
     im = Image.fromarray(im)
     im.save(file_name)
 

@@ -1,4 +1,3 @@
-from gym_rearrangement.envs.maze_env import *
 
 from gym_rearrangement.envs.robotics import FetchEnv
 from gym_rearrangement.envs.robotics import FetchPickAndPlaceEnv

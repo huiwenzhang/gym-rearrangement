@@ -1,13 +1,14 @@
-from gym.spaces import Box
-
-from gym_rearrangement.core.serializable import Serializable
 import numpy as np
+from gym.spaces import Box
+import inspect
+from gym_rearrangement.core.serializable import Serializable
 
 
 class ProxyEnv(Serializable):
     def __init__(self, wrapped_env):
         self.quick_init(locals())
         self._wrapped_env = wrapped_env
+        self.class_attributes = dict(inspect.getmembers(self.__class__))
 
     @property
     def wrapped_env(self):
@@ -16,10 +17,35 @@ class ProxyEnv(Serializable):
     def __getattr__(self, attrname):
         if attrname == '_serializable_initialized':
             return None
-        return getattr(self._wrapped_env, attrname)
+        return self.getattr_recursive(attrname)
 
     def __str__(self):
         return '{}({})'.format(type(self).__name__, self.wrapped_env)
+
+    def _get_all_attributes(self):
+        """Get all (inherited) instance and class attributes
+        :return: (dict<str, object>) all_attributes
+        """
+        all_attributes = self.__dict__.copy()
+        all_attributes.update(self.class_attributes)
+        return all_attributes
+
+    def getattr_recursive(self, name):
+        """Recursively check wrappers to find attribute.
+        :param name (str) name of attribute to look for
+        :return: (object) attribute
+        """
+        all_attributes = self._get_all_attributes()
+        if name in all_attributes:  # attribute is present in this wrapper
+            attr = getattr(self, name)
+        elif hasattr(self.wrapped_env, 'getattr_recursive'):
+            # Attribute not present, child is wrapper. Call getattr_recursive rather than getattr
+            # to avoid a duplicate call to getattr_depth_check.
+            attr = self.wrapped_env.getattr_recursive(name)
+        else:  # attribute not present, child is an unwrapped VecEnv
+            attr = getattr(self.wrapped_env, name)
+
+        return attr
 
 
 class NormalizedBoxEnv(ProxyEnv, Serializable):
@@ -103,4 +129,3 @@ class NormalizedBoxEnv(ProxyEnv, Serializable):
 
     def __str__(self):
         return "Normalized: %s" % self._wrapped_env
-
