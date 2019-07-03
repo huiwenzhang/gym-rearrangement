@@ -108,6 +108,7 @@ class ImageEnv(ProxyEnv, GoalEnv):
     def reset(self):
         self.episode_cnt += 1
         obs = self.wrapped_env.reset()
+        self._img_goal = self._sample_goal()
         return self._update_obs(obs)
 
     def render(self, *args, **kwargs):
@@ -225,7 +226,8 @@ class ImageEnv(ProxyEnv, GoalEnv):
         goal_img = self.recover_img(img)
 
         if self.save_img:
-            file_name = os.path.join(self.img_path, 'goal_img_episode_{:3d}.png'.format(self.episode_cnt))
+            file_name = os.path.join(self.img_path, 'goal', 'episode_{:0>3d}.png'.format(self.episode_cnt))
+            os.makedirs(os.path.dirname(file_name), exist_ok=True)
             im = Image.fromarray(goal_img)
             im.save(file_name)
         return img
