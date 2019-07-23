@@ -4,7 +4,7 @@ A MuJoCo based environment used for robot rearrangement task
 
 ## Installation and usage
 To install this package, just clone this repo to your local PC. Run `pip install -e .` under 
-the package directory. To test if the package works normally, run
+the package directory. To test if the package is successfully installed, run
 ```python
 import gym_rearrangement
 import gym
@@ -27,7 +27,7 @@ for _ in range(1000):
     if done:
         env.reset()
 ```
-To retrieve image observations, we implement a image env wrapper defined in 
+To use image observations, we implement a image env wrapper defined in 
 `gym-reaarrangement/core/image_env.py`. An example  is shown below
 ```python
 import gym
@@ -67,7 +67,7 @@ wrapper defined in `gym-rearrangement/core/flat_env.py`．
 
 ## Wrappers
 We implement three main wrappers in total, they are:
-- image wrapper: add extra image observations for the original state observation
+- image wrapper: extended image observations on top of the original state observations
 - frame stack wrapper: used for envs with image-based observations. It will stack a number of 
 frames and feed them into your policy network
 - flat wrapper: To covert dict observations in robotics env to Box or Discrete spaces observations 
@@ -75,7 +75,7 @@ which are compatible with the input of the rl algorithm
 
 **Note:** Since the wrappers are used in specific conditions, the order to use them is a key factor.
 For example, if you want to use the frame stack wrapper you need to wrapper a normal env with
-the image wrapper. Generally, the recommended usage sequences is as follows: 
+the image wrapper. Generally, a typical script using image observations for RL is: 
 ```python
 import gym
 from gym_rearrangement.core.image_env import ImageEnv
@@ -99,18 +99,17 @@ for i in range(500):
 ```
 
 ## Learning relations between objects
-We are include codes to generate dataset with relation or non-relations questions,
-which allows us to learn relations with graph neural networks. We argue that
+We implement codes to generate dataset including relation or non-relation questions,
+which allow us to learn relations with graph neural networks. We argue that
 relation is a key feature for rearrangement task. 
 Some annotated samples are shown bellow:
 
 <img src="images/1174.png" alt="vqa sample" width="200"/> <img src="images/1597.png" alt="vqa sample" width="200"/> <img src="images/37845.png" alt="vqa sample" width="200"/>
 
 ## Supported environments
-- FecthPickAndPlace-v2: a variation of the gym FetchPickAndPlace-v1 env.
-- FetchRearrangement{2,3,4,6}-v1: rearrangement task with 2,3,4,6 objects
+- FetchRearrangement{1,2,3,4,6}-v1: rearrangement task with 1,2,3,4,6 objects
 
-**Note: All of the enviroments support multiple kinds of reward type, such as sparse and dense**
+**Note: You can do reward shaping for all of the environments by re-implement the compute_rewards method**
 
 ## References
 - OpenAI gym: https://github.com/openai/gym
