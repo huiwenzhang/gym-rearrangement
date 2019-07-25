@@ -1,5 +1,4 @@
 import numpy as np
-
 from gym_rearrangement.envs.robotics import rotations, robot_env, utils
 
 

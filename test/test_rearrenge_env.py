@@ -2,17 +2,11 @@
 Test of the fetch environment
 """
 
-# Optional fetch env id:
-# - FetchReach-v1
-# - FetchSlide-v1
-# - FetchPush-v1
-# - FetchPickAndPlace-v1
-
 import gym
 import gym_rearrangement
+from pprint import pprint
 
-# Initialize the "maze" environment
-env = gym.make("FetchRearrangement4-v1")
+env = gym.make("FetchRearrangement1Dense-v1")
 
 obs = env.reset()
 print(obs['observation'].shape)
@@ -20,6 +14,8 @@ for _ in range(2000):
     action = env.action_space.sample()
     obs, rew, done, info = env.step(action)
     print(rew)
+    print('*' * 60)
+    pprint(obs)
     env.render()
     if done:
         env.reset()

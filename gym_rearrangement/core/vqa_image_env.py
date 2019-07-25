@@ -12,6 +12,7 @@ TABLE_SIZE = 0.5 * 100
 TABLE_CORNER = [105, 50]
 TABLE_CENTER = [1.3, 0.75]  # Unit: meter
 
+
 class FetchVQAImageEnv(ImageEnv):
     """
     A wrapper used to retrieve image-based observations

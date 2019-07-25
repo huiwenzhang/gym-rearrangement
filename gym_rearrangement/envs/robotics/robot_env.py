@@ -16,11 +16,10 @@ except ImportError as e:
         "https://github.com/openai/mujoco-py/.)".format(e))
 
 DEFAULT_SIZE = 500
-MAX_STEPS = 400
 
-BOX_RANGE_X = Interval(1.0, 1.6)
+BOX_RANGE_X = Interval(1.0, 1.45)
 BOX_RANGE_Y = Interval(0.3, 1.2)
-BOX_RANGE_Z = Interval(0.35, 0.7)
+BOX_RANGE_Z = Interval(0.4, 0.7)
 
 
 class RobotEnv(GoalEnv):
@@ -41,9 +40,10 @@ class RobotEnv(GoalEnv):
         self.data = self.sim.data
         self._viewers = {}
         self._step_cnt = 0  # number of steps run so far
-        self.episode_step_cnt = 0
+        self.episode_cnt = 0
         self.n_obj = n_obj  # number of objects
         self.threshold = distance_threshold
+        self.np_random = None  # random module in numpy
         self.use_reach_policy = True
 
         self.obj_id = list(range(self.n_obj))  # which to pick first
@@ -77,8 +77,6 @@ class RobotEnv(GoalEnv):
     def dt(self):
         return self.sim.model.opt.timestep * self.sim.nsubsteps
 
-    # Env methods
-
     def seed(self, seed=None):
         self.np_random, seed = seeding.np_random(seed)
         return [seed]
@@ -105,6 +103,7 @@ class RobotEnv(GoalEnv):
 
     def step(self, action):
         # obj need to reach at current
+        action = np.clip(action, self.action_space.low, self.action_space.high)
         done = False
         if len(self.obj_id) > 0:
             obj_id = self.obj_id[-1]
@@ -128,7 +127,7 @@ class RobotEnv(GoalEnv):
 
             if self.use_reach_policy and is_far and not target_reached:
                 # print('Episode step: {}, Reaching object {} with reach target policy'.format(
-                #     self.episode_step_cnt, obj_id))
+                #     self.episode_cnt, obj_id))
                 pos_act = self.reach_target_policy(grip_pos, object_pos)
                 action[:3] = np.array(pos_act)
 
@@ -156,12 +155,7 @@ class RobotEnv(GoalEnv):
             reward = self.compute_rewards(obs)
 
         self._step_cnt += 1  # Update step number
-        self.episode_step_cnt += 1
-
-        # it wouldn't work here becasue the timelimit wrapper will set the default maximum steps
-        # if self.episode_step_cnt >= MAX_STEPS:
-        #     print('Maximum episode steps reached')
-        #     done = True
+        self.episode_cnt += 1
 
         return obs, reward, done, info
 
@@ -187,7 +181,7 @@ class RobotEnv(GoalEnv):
         # Gimbel lock) or we may not achieve an initial condition (e.g. an object is within the hand).
         # In this case, we just keep randomizing until we eventually achieve a valid initial
         # configuration.
-        self.episode_step_cnt = 0
+        self.episode_cnt = 0
         self.obj_id = list(range(self.n_obj))
         np.random.shuffle(self.obj_id)
 
@@ -224,32 +218,20 @@ class RobotEnv(GoalEnv):
         assert len(goal) == len(achieved_goal) == 3 * self.n_obj
         grip_pos = obs['observation'][:3]
         # print('achieved goal: {}, goal: {}, gripper pos: {}'.format(achieved_goal, goal, grip_pos))
-        if self.n_obj < 2:
-            d1 = self.goal_distance(achieved_goal, goal)
-            d2 = self.goal_distance(grip_pos, achieved_goal)
+        if self.n_obj == 1:  # only 1 object
+            d = self.goal_distance(achieved_goal[:2], goal[:2])
         else:  # more objects
-            d1, d2 = [], []
-            for i in range(self.n_obj):
-                d1.append(self.goal_distance(achieved_goal[3 * i: 3 * (i + 1)],
-                                             goal[3 * i: 3 * (i + 1)]))
-                d2.append(self.goal_distance(grip_pos, achieved_goal[3 * i:3 * (i + 1)]))
-                # if goal is reached (threshold: 5cm), there is no need to reach the object
-                d2[i] = 0 if d1[i] <= self.threshold else d2[i]
-
-        # TODO: should we use two-stage rewards
-        d = d1
+            # TODO: we cann't use the sum of each goal-object distance, because they contradict each other
+            # we don't use two stage reward because we use the reach to object policy
+            d = [self.goal_distance(achieved_goal[3 * i: 3 * (i + 1) - 1], goal[3 * i: 3 * (i + 1) - 1]) for i
+                 in
+                 range(self.n_obj)]
 
         # sparse reward: either 0 or 1 reward
-        if self.n_obj == 1:
-            if self.reward_type == 'sparse':
-                return (d < self.threshold).astype(np.float32)
-            else:
-                return -d
+        if self.reward_type == 'sparse':
+            return (np.array(d) < self.threshold).sum().astype(np.float32)
         else:
-            if self.reward_type == 'sparse':
-                return (np.array(d) < self.threshold).sum()
-            else:
-                return -(np.array(d).sum())
+            return -(np.array(d).sum())
 
     def _get_viewer(self, mode):
         self.viewer = self._viewers.get(mode)

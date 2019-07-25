@@ -2,16 +2,11 @@
 Test of the fetch environment
 """
 
-# Optional fetch env id:
-# - FetchReach-v1
-# - FetchSlide-v1
-# - FetchPush-v1
-# - FetchPickAndPlace-v1
+import os
 
 import gym
 from PIL import Image
-import os
-import gym_rearrangement
+
 from gym_rearrangement.core.image_env import ImageEnv
 
 # Initialize the "rearrangement" environment
@@ -30,7 +25,7 @@ for i in range(500):
     im = Image.fromarray(im)
     im.save(file_name)
 
-    env.cv_render('external_camera_0') # render on screen with opencv
+    env.cv_render('external_camera_0')  # render on screen with opencv
 
     if done:
         env.reset()

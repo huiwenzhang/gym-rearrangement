@@ -12,7 +12,7 @@ from gym_rearrangement.envs.robotics import fetch_env, utils, rotations
 N_GRID = 3
 TABLE_SIZE = 0.5 * 100  # width of the table, unit: cm
 TABLE_CORNER = [105, 50]  # right bottom corner, robot view
-GRID_SIZE = int(TABLE_SIZE * 0.85 / N_GRID)
+GRID_SIZE = int(TABLE_SIZE * 0.82 / N_GRID)
 
 
 class Rearrangement(fetch_env.FetchEnv, EzPickle):
@@ -128,7 +128,7 @@ class Rearrangement(fetch_env.FetchEnv, EzPickle):
         object_velr = np.array(object_velr)
         grip_rel_pos = np.array(grip_rel_pos)
 
-        achieved_goal = np.squeeze(object_pos.flatten())
+        achieved_goal = np.squeeze(object_pos.ravel())
         # 46D
         obs = np.concatenate([
             grip_pos, object_pos.ravel(), grip_rel_pos.ravel(), grip_state, object_rot.ravel(),

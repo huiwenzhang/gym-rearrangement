@@ -27,7 +27,7 @@ for _ in range(1000):
     if done:
         env.reset()
 ```
-To use image observations, we implement a image env wrapper defined in 
+To use image observations, we implement the image env wrapper defined in 
 `gym-reaarrangement/core/image_env.py`. An example  is shown below
 ```python
 import gym
